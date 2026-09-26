@@ -118,7 +118,7 @@ services:
 
   oidc:
     image: quay.io/keycloak/keycloak:26.7.4
-    command: [start-dev]
+    command: [start-dev, --import-realm]
     environment:
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://postgres:5432/oidc
@@ -128,8 +128,22 @@ services:
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${OIDC_ADMIN_PASSWORD:?Run make infra-init}
       KC_HEALTH_ENABLED: "true"
       KC_HOSTNAME: http://localhost:8080
+      GTB_CUSTOMER_PASSWORD: ${GTB_CUSTOMER_PASSWORD:?Run make infra-init}
+      GTB_OPERATIONS_PASSWORD: ${GTB_OPERATIONS_PASSWORD:?Run make infra-init}
+      GTB_OPERATIONS_APPROVER_PASSWORD: ${GTB_OPERATIONS_APPROVER_PASSWORD:?Run make infra-init}
+      GTB_COMPLIANCE_PASSWORD: ${GTB_COMPLIANCE_PASSWORD:?Run make infra-init}
+      GTB_COMPLIANCE_APPROVER_PASSWORD: ${GTB_COMPLIANCE_APPROVER_PASSWORD:?Run make infra-init}
+      GTB_AUDITOR_PASSWORD: ${GTB_AUDITOR_PASSWORD:?Run make infra-init}
+      GTB_PLATFORM_ADMIN_PASSWORD: ${GTB_PLATFORM_ADMIN_PASSWORD:?Run make infra-init}
+      RAIL_SIMULATOR_OIDC_SECRET: ${RAIL_SIMULATOR_OIDC_SECRET:?Run make infra-init}
+      SCREENING_SIMULATOR_OIDC_SECRET: ${SCREENING_SIMULATOR_OIDC_SECRET:?Run make infra-init}
+      CORE_BANKING_OIDC_SECRET: ${CORE_BANKING_OIDC_SECRET:?Run make infra-init}
+      EVENT_PROJECTOR_OIDC_SECRET: ${EVENT_PROJECTOR_OIDC_SECRET:?Run make infra-init}
+      EXPIRED_TOKEN_TEST_OIDC_SECRET: ${EXPIRED_TOKEN_TEST_OIDC_SECRET:?Run make infra-init}
     ports:
       - "127.0.0.1:8080:8080"
+    volumes:
+      - ./oidc/gtb-realm.json:/opt/keycloak/data/import/gtb-realm.json:ro
     depends_on:
       postgres:
         condition: service_healthy

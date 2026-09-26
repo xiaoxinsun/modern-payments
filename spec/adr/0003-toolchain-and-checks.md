@@ -10,9 +10,12 @@ Pin Go **1.27.1** in `backend/go.mod`, use `GOTOOLCHAIN=local`, and have
 No temporary Go installation participates in final I01 validation; temporary
 build/module caches only accommodate the workspace sandbox.
 
-Runtime code currently needs only the standard library. The initial direct test
-dependency is `github.com/santhosh-tekuri/jsonschema/v6 v6.0.2`; its transitive
-dependency is `golang.org/x/text v0.14.0`. Both are pinned in `go.mod`/`go.sum`.
+At I01 completion, runtime code needed only the standard library. I03 subsequently
+adopted maintained JWT/JWKS and UUID packages; [ADR 0007](0007-maintained-libraries-and-project-owned-code.md)
+records the current build-versus-adopt policy and supersedes the earlier runtime
+dependency assumption. The initial direct test dependency remains
+`github.com/santhosh-tekuri/jsonschema/v6 v6.0.2`; its transitive dependency is
+`golang.org/x/text v0.14.0`. Dependencies are pinned in `go.mod`/`go.sum`.
 The validator's own tests additionally pin `github.com/dlclark/regexp2 v1.11.0`
 in the resolved checksum graph; this is not a GTB runtime dependency.
 The validator supports draft 2020-12 and format assertions; its
@@ -20,7 +23,7 @@ The validator supports draft 2020-12 and format assertions; its
 describes those capabilities. It is not imported by domain or runtime code.
 Compatibility is verified with Go 1.27.1 by `make check`.
 
-Do not add unused Temporal, PostgreSQL, Kafka or OIDC modules to fake dependency
+Do not add unused Temporal, PostgreSQL or Kafka modules to fake dependency
 completeness. Their owning infrastructure/runtime phases select and pin versions
 alongside actual code and compatibility tests. I02 owns container version pins.
 This keeps I01 outside running infrastructure and business features.

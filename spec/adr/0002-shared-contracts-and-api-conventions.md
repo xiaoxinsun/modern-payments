@@ -27,6 +27,8 @@ rejects malformed/missing/unknown money fields without mutating the destination.
 `Money.Add` rejects currency mismatch and out-of-range inputs/results.
 
 `value.ID` is a canonical lowercase UUIDv4 generated from cryptographic randomness.
+Its generation and parsing delegate to the maintained `gofrs/uuid/v5` package;
+the GTB wrapper enforces the narrower version/canonical-form contract.
 It is the common representation for internal payment, command, operation, event,
 account, customer, correlation and causation identifiers; names of fields retain
 their semantic role. It neither encodes order nor grants authority. External

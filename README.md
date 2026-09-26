@@ -42,6 +42,8 @@ See [implementation progress](spec/gtb-implementation.md) and the
 The [local dependency runbook](docs/runbooks/local-development.md) covers the
 I02 Compose stack: `make infra-init infra-up`, then
 `make db-provision db-migrate db-seed`. Run `make infra-verify` for live checks.
+Run `make auth-smoke` after the stack is healthy to validate the I03 OIDC realm,
+protected sample API, readiness, redacted logging and graceful shutdown.
 
 ## Suggested Git workflow
 

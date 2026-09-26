@@ -6,12 +6,12 @@ Planning is complete for this breakdown. **Application implementation is in prog
 
 ## Resume pointer
 
-- Active phase: none.
-- Next phase: **I03 — Authentication and service runtime**.
-- Next action: read [I03](phases/i03.md), inspect the I02 completion handoff and working tree, then mark I03 `in progress` before implementation.
-- Last completed phase: **I02 — Local infrastructure and persistence**.
+- Active phase: none; I03 is complete.
+- Next phase: **B01 — Core Banking accounts and posting engine**.
+- Next action: read the B01 packet and required foundation sections, inspect the I03 handoff, and start its first bounded scope item with the dependency plan recorded below.
+- Last completed phase: **I03 — Authentication and service runtime**.
 - Blockers: none recorded.
-- Last updated: 2026-09-26 — I02 completed; clean setup, owner isolation, migration/seed checks, restart persistence and explicit reset passed. I03 has not started.
+- Last updated: 2026-09-26 — I03 completed again after replacing custom JWT/JWKS and UUID mechanics with maintained libraries, auditing planned dependencies across the design, and passing final unit/race/live/infrastructure/security checks.
 
 Update these fields whenever the active phase changes or work pauses. If a phase is already active, resume its checkpoint instead of starting the next row.
 
@@ -30,6 +30,38 @@ The table order is the default serial schedule. The dependency column contains i
 
 Backend phases must be demonstrable with tests and API/CLI fixtures before the frontend exists. Authentication, financial invariants and failure tests are delivered with their owning feature, not deferred wholesale to final verification. If a packet grows too large for one session, checkpoint it and resume; optionally split it into stable subphase IDs and update this tracker before expanding scope.
 
+## Dependency adoption register
+
+Prefer a maintained, focused library for protocol parsing, cryptography, database
+drivers, broker/workflow clients, telemetry and generated boundary code. Keep GTB
+code for business rules, authorization policy, financial ambiguity handling and
+small standard-library composition. A future phase must confirm compatibility and
+pin the then-current exact version when it first imports a planned dependency; a
+name in this table is a design decision, not permission to add an unused module.
+See [ADR 0007](adr/0007-maintained-libraries-and-project-owned-code.md) for the
+review criteria, alternatives and retained custom-code rationale.
+
+| Owner | Capability | Decision |
+| --- | --- | --- |
+| I01/I03 | JSON Schema and UUID | Keep `santhosh-tekuri/jsonschema/v6`; use `gofrs/uuid/v5` behind GTB value types. |
+| I03 | JWT and remote JWKS | Use `golang-jwt/jwt/v5` plus `MicahParks/keyfunc/v3`; GTB retains claims-to-principal and authorization policy. |
+| I02 | Database migrations | Retain the small project runner because immutable checksums, history validation and one transaction for all pending files are explicit GTB guarantees. |
+| B01 | PostgreSQL and generated queries | Use `jackc/pgx/v5` and `sqlc`; keep transactions and accounting invariants in application/domain code. |
+| B01 onward | Telemetry | Use OpenTelemetry Go API/SDK and maintained `otelhttp`/driver/client instrumentation; keep metric names and redaction policy project-owned. |
+| B02 | OpenAPI server boundary | Use `oapi-codegen/v2` with its Go 1.22+ `net/http` server target and `kin-openapi/openapi3filter` request validation. |
+| B03 | Kafka | Use `twmb/franz-go`; GTB owns outbox, inbox, deduplication, ordering-gap and replay semantics. |
+| B04 onward | Durable workflows | Use the official `go.temporal.io/sdk` and `testsuite`; workflow determinism and financial state machines remain GTB code. |
+| B07 onward | External adapter circuit state | Use `sony/gobreaker/v2` around eligible synchronous calls; never let it infer an unknown financial outcome or authorize a blind retry. |
+| B13 | CSV import | Use Go `encoding/csv`; GTB owns file/item identities, validation and partial recovery. |
+| F01 onward | Browser application | Use React/TypeScript/Vite, `react-oidc-context`/`oidc-client-ts`, TanStack Query, and `@hey-api/openapi-ts`; use Playwright plus `@axe-core/playwright` for browser/accessibility checks. |
+| V01 | Load verification | Use Grafana k6 for repeatable API load profiles and thresholds; use Temporal replay facilities for workflow-history compatibility. |
+
+The shared HTTP runtime continues to use `net/http`, `log/slog`, `context` and
+`os/signal`; its correlation, safe-error, readiness, redaction and role/scope
+middleware are application policy rather than missing framework features. Money,
+posting, idempotency, execution ownership, reconciliation and unknown-outcome
+rules likewise stay project-owned and are not delegated to generic libraries.
+
 ## Phase status register
 
 Allowed statuses: `not started`, `in progress`, `blocked`, `completed`. Start with one active phase; partial completion remains `in progress`. `blocked` requires a concrete blocker and next unblock action in the packet. `completed` requires checked exit criteria and recorded validation evidence.
@@ -38,7 +70,7 @@ Allowed statuses: `not started`, `in progress`, `blocked`, `completed`. Start wi
 | --- | --- | --- | --- | --- |
 | [I01](phases/i01.md) | Infrastructure | Repository scaffold and contracts | — | completed |
 | [I02](phases/i02.md) | Infrastructure | Local infrastructure and persistence | I01 | completed |
-| [I03](phases/i03.md) | Infrastructure | Authentication and service runtime | I02 | not started |
+| [I03](phases/i03.md) | Infrastructure | Authentication and service runtime | I02 | completed |
 | [B01](phases/b01.md) | Backend | Core Banking accounts and posting engine | I03 | not started |
 | [B02](phases/b02.md) | Backend | Payment command model and durable receipts | B01 | not started |
 | [B03](phases/b03.md) | Backend | Event delivery and CQRS query foundation | B02 | not started |
@@ -124,6 +156,10 @@ Append rows when starting, blocking, resuming, completing or reopening a phase. 
 | 2026-09-26 | I01 | in progress → completed | Shared contracts, ADRs, developer commands and baseline CI delivered; `make check` and nine binary smoke checks passed with global Homebrew Go 1.27.1. See I01 completion evidence/handoff. |
 | 2026-09-26 | I02 | not started → in progress | I01 committed at `cc661d8`; clean working tree and handoff inspected. Start with persistent Compose dependencies. |
 | 2026-09-26 | I02 | in progress → completed | Persistent dependencies, isolated owner databases, transactional migrations, synthetic seeds and runbook/CI delivered. Clean setup, 41 cross-domain write denials, authentication, migration failure/concurrency, restart persistence and isolated destructive reset checks passed; see I02 completion evidence. |
+| 2026-09-26 | I03 | not started → in progress | I02 completed at `34c8fb1`; clean working tree and completion handoff inspected. Begin OIDC fixtures, reusable authentication/authorization, and service runtime primitives. |
+| 2026-09-26 | I03 | in progress → completed | Local OIDC roles/service identities, reusable bearer/scope enforcement and service runtime delivered. Full Go/race gate, authenticated live smoke, infrastructure isolation and restart persistence passed; see I03 completion evidence. |
+| 2026-09-26 | I03 | completed → in progress | Reopened by request for a maintained JWT/JWKS dependency and a retrospective build-versus-adopt audit across implemented and planned design. Preserve the earlier successful evidence while revising. |
+| 2026-09-26 | I03 | in progress → completed | Replaced JWT/JWKS and UUID mechanics with pinned maintained libraries, documented dependency ownership across all stages, and reran full Go/race, vulnerability, live auth and infrastructure regression checks; see the library-review evidence. |
 
 ## Resume request example
 

@@ -2,7 +2,8 @@
 
 Run commands from the repository root. Install Docker with Compose v2.20 or
 newer and Python 3; start the Docker daemon first. This stack runs infrastructure
-only. Go service binaries remain the I01 scaffold until I03.
+dependencies; application services are started separately. `payment-api` contains
+the I03 authenticated runtime, while business services remain feature scaffolds.
 
 ## Start and inspect
 
@@ -80,7 +81,8 @@ Temporal schema setup is rerunnable at the pinned version; namespace `gtb` has
 72-hour history retention. Kafka uses one KRaft broker/controller with replication
 factor one, persistent log storage and explicit topic creation. Keycloak uses
 development mode backed by PostgreSQL. These are local dependencies; the GTB
-realm, customer/operator identities, clients and service identities arrive in I03.
+realm, customer/operator identities, clients and service identities are supplied
+by I03.
 
 ## Stop, restart and reset
 
@@ -129,5 +131,34 @@ then repeat provisioning, migration and seed commands. Missing/changed applied
 migrations require restoring their original files; do not edit ledger checksums.
 If credentials are lost, recover the matching `.env` or use an explicit local
 administrative password rotation; merely generating new passwords cannot unlock
-existing volumes. The Keycloak GTB realm, service clients and customer/operator
-identities are I03 work. Feature tables and business seeds remain feature work.
+existing volumes.
+
+## Local identity and authenticated runtime
+
+The versioned Keycloak `gtb` realm imports on first startup. It contains synthetic
+customer, separate operations maker/checker, separate compliance reviewer/approver,
+auditor and platform administrator users. Confidential rail, screening, Core
+Banking and projector service identities are also seeded. All passwords and client
+secrets come from the ignored mode-0600 `.env`; never print, copy into source, or
+attach that file to evidence. The `gtb-cli` password grant exists only for local
+automated smoke checks, and Keycloak `start-dev` is not a production configuration.
+
+Run the authenticated sample runtime and its checks with:
+
+```sh
+make auth-smoke
+```
+
+The check starts `payment-api` on loopback port 18082, verifies public liveness and
+OIDC-backed readiness, then exercises valid, invalid and expired tokens; customer
+scope; operator/compliance/auditor roles; integration service roles; correlation
+IDs; disabled development controls; structured credential-safe logs; and SIGTERM
+shutdown. It deletes its temporary log. The normal runtime defaults to loopback
+port 8082 and issuer `http://localhost:8080/realms/gtb`; configure deployments with
+`GTB_HTTP_ADDRESS`, `GTB_PROFILE`, `GTB_AUTH_ISSUER`, `GTB_AUTH_AUDIENCE` and, when
+needed, `GTB_AUTH_JWKS_URL`. Development controls additionally require
+`GTB_ENABLE_DEV_CONTROLS=true` and are rejected in the production profile.
+JWT/claim validation uses pinned `golang-jwt/jwt/v5` and `keyfunc/v3` modules;
+authorization and customer-scope decisions remain in GTB middleware.
+
+Feature tables and business seeds remain feature-phase work.

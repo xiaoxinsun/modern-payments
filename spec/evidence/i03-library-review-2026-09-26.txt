@@ -1,0 +1,109 @@
+I03 maintained-library retrofit and design audit evidence
+Date: 2026-09-26
+Branch/base: main, started from 34c8fb1 (phase Infra-02 implemented)
+
+This evidence supplements and supersedes the implementation-detail statements in
+i03-completion-2026-09-26.txt. The earlier file is retained as the initial I03
+completion record. No credential, access token, generated .env content or
+temporary service log is included here.
+
+1. Maintained-library retrofit
+
+Pinned direct Go modules after `go mod tidy`:
+  github.com/golang-jwt/jwt/v5 v5.3.1
+  github.com/MicahParks/keyfunc/v3 v3.8.2
+  github.com/MicahParks/jwkset v0.11.3
+  github.com/gofrs/uuid/v5 v5.5.1
+  github.com/santhosh-tekuri/jsonschema/v6 v6.0.2
+
+`jwt/v5` now owns JOSE/JWT parsing, RS256 signature verification and registered
+claim validation. `keyfunc/v3` owns remote JWKS retrieval, caching, rotation and
+unknown-key refresh. GTB code retains token-size bounds, exact issuer/audience,
+required expiry/subject/key ID, signature-use keys, principal mapping, intended-audience client-role
+isolation and endpoint/customer authorization. `gofrs/uuid/v5` now owns UUID
+generation/parsing behind the unchanged canonical UUIDv4-only `value.ID` contract.
+
+Direct/transitive module license files were inspected. Selected dependencies use
+MIT, Apache-2.0 or compatible Go BSD-style licenses.
+
+Command:
+  GOCACHE=/private/tmp/gtb-i03-go-cache go mod tidy
+
+Result: PASS (exit 0); direct imports are direct requirements and the checksum
+graph is consistent.
+
+Command:
+  GOCACHE=/private/tmp/gtb-i03-go-cache make check
+
+Result: PASS (exit 0) on Go 1.27.1 darwin/arm64. Exact toolchain, formatting,
+module tidy/checksum verification, vet, unit/contract/architecture tests, race
+detector and all nine builds passed. New verifier cases reject an HMAC algorithm,
+bad signature, malformed token, missing key ID, missing expiry, missing subject, expired token,
+wrong issuer/audience and future not-before. Readiness fails closed with no JWKS.
+UUID generation, canonical form, version and variant tests pass through the
+maintained implementation.
+
+Command:
+  GOCACHE=/private/tmp/gtb-i03-go-cache go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
+Result: PASS (exit 0). The command resolved official govulncheck v1.8.0 and
+reported `No vulnerabilities found.` The scanner is an evidence-time tool and was
+not added as an application dependency.
+
+2. Cross-design build-versus-adopt review
+
+ADR 0007 and the tracker dependency adoption register record reviewed ownership
+for PostgreSQL/sqlc, OpenAPI generation/validation, Kafka, Temporal, telemetry,
+adapter circuit state, CSV, frontend OIDC/server-state/client generation/browser
+testing and load/replay verification. The relevant future phase packets name the
+selected library and the GTB policy boundary. Exact future versions remain owned
+by the phase that first imports them so stale unused modules are not pre-pinned.
+
+The I02 migration wrapper was retained deliberately. Its immutable SHA-256
+history validation, advisory serialization and validation-plus-all-pending-files
+transaction are tested GTB guarantees not replaced cleanly by the reviewed general
+migration tool. Standard-library HTTP/config/logging remains because the local
+code expresses correlation, safe-error, readiness, redaction, shutdown and
+authorization policy rather than reimplementing a wire protocol.
+
+3. Live and infrastructure regression validation
+
+Command:
+  make auth-smoke
+
+Result: PASS (exit 0). Liveness and OIDC-backed readiness passed; missing,
+invalid and expired tokens were denied; customer, human-role and service-role
+allow/deny boundaries passed; maker/checker roles remained separate; invalid
+correlation input was replaced safely; development controls remained disabled;
+SIGTERM exited 0; JSON logs contained no local credential values. The temporary
+payment API was stopped by the test.
+
+Command:
+  make infra-verify
+
+Result: PASS (exit 0). Dependency health, concurrent/repeated migrations and
+seeds, all 41 cross-domain/admin write denials, six owner logins, checksum
+rejection and atomic rollback passed.
+
+Command:
+  make infra-status
+
+Result: PASS (exit 0). PostgreSQL, Temporal, Temporal UI, Kafka and OIDC were
+healthy; Temporal setup jobs were exited 0.
+
+Command group:
+  python3 -m json.tool infra/compose/oidc/gtb-realm.json
+  PYTHONPYCACHEPREFIX=/private/tmp/gtb-i03-pycache python3 -m py_compile infra/compose/init-env.py infra/compose/tests/auth_smoke.py
+  ruby -e 'require "yaml"; YAML.load_file(".github/workflows/infrastructure.yml"); puts "workflow YAML parsed"'
+  stat -f '%Lp' infra/compose/.env
+  git check-ignore infra/compose/.env
+  generated credential value exclusion scan with ripgrep
+  git diff --check
+
+Result: PASS (exit 0). JSON/Python/YAML parsed, the ignored credential file
+remained mode 0600, no generated password/secret appeared in tracked source and
+the diff had no whitespace errors.
+
+Hosted CI was not observed. The five dependency services remain healthy and the
+payment API process is stopped. No database migration or wire/business contract
+changed in the retrofit.

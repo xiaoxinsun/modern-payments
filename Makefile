@@ -37,7 +37,7 @@ build:
 	cd backend && $(GO) build -mod=readonly -trimpath -o ../.build/bin/ ./cmd/...
 
 COMPOSE := docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml
-.PHONY: infra-init infra-config infra-up infra-status infra-down db-provision db-migrate db-seed infra-verify infra-restart-check infra-reset
+.PHONY: infra-init infra-config infra-up infra-status infra-down db-provision db-migrate db-seed infra-verify infra-restart-check auth-smoke infra-reset
 
 infra-init:
 	python3 infra/compose/init-env.py
@@ -68,6 +68,9 @@ infra-verify:
 
 infra-restart-check:
 	python3 infra/compose/tests/restart.py
+
+auth-smoke: build
+	python3 infra/compose/tests/auth_smoke.py
 
 infra-reset:
 	@test "$(CONFIRM)" = "delete-gtb-data" || { echo 'Destructive reset requires CONFIRM=delete-gtb-data'; exit 1; }

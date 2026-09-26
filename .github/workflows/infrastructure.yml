@@ -13,8 +13,12 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4.2.2
+      - uses: actions/setup-go@v6.0.0
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
       - run: make infra-init infra-config infra-up
       - run: make db-provision db-migrate db-seed
-      - run: make infra-verify infra-restart-check
+      - run: make infra-verify infra-restart-check auth-smoke
       - if: always()
         run: make infra-reset CONFIRM=delete-gtb-data

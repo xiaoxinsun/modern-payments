@@ -1,0 +1,99 @@
+I03 authentication and service runtime completion evidence
+Date: 2026-09-26
+Branch/base: main, started from 34c8fb1 (phase Infra-02 implemented)
+
+No credential, access token, generated .env content, or temporary service log is
+included in this evidence.
+
+1. Local configuration and fixture validation
+
+Command:
+  make infra-init && make infra-config
+
+Result: PASS (exit 0). Two final maker/checker credential keys were added on the
+last run; all existing values were preserved. Docker Compose configuration passed.
+
+Command:
+  python3 -m json.tool infra/compose/oidc/gtb-realm.json >/dev/null
+  PYTHONPYCACHEPREFIX=/private/tmp/gtb-i03-pycache python3 -m py_compile infra/compose/init-env.py infra/compose/tests/auth_smoke.py
+  ruby -e 'require "yaml"; YAML.load_file(".github/workflows/infrastructure.yml"); puts "workflow YAML parsed"'
+  test "$(stat -f '%Lp' infra/compose/.env)" = 600
+  git check-ignore infra/compose/.env >/dev/null
+  git diff --check
+
+Result: PASS (exit 0). Realm JSON, Python files and workflow YAML parsed; local
+credentials remained mode 0600 and ignored; diff whitespace check passed.
+
+Command:
+  failed=0; while IFS='=' read -r name value; do case "$name" in *PASSWORD|*SECRET) if test -n "$value" && rg -F -q -- "$value" .; then echo "credential value present in source for $name"; failed=1; fi ;; esac; done < infra/compose/.env; test "$failed" = 0
+
+Result: PASS (exit 0). No generated password or client-secret value appeared in
+repository source (ignored paths excluded by ripgrep).
+
+2. Complete backend gate
+
+Command:
+  make fmt
+  GOCACHE=/private/tmp/gtb-i03-go-cache make check
+
+Result: PASS (exit 0) on Go 1.27.1 darwin/arm64. Formatting, module tidy diff,
+module checksum verification, go vet, all unit/contract/architecture tests, the
+race detector and all nine binary builds passed. Auth tests cover RS256/JWKS,
+issuer, audience, expiry/not-before, signature rejection, intended-audience client
+roles, customer scope and role denial. Runtime tests cover correlation handling,
+readiness, log redaction, local-only controls and production identity URL safety.
+
+3. Existing infrastructure regression checks
+
+Command:
+  make infra-verify
+
+Result: PASS (exit 0). All dependencies/setup jobs healthy; concurrent migrations,
+repeated provisioning/seeding, 41 forbidden cross-domain/admin writes, six owner
+logins, migration checksum rejection and atomic rollback passed.
+
+Command:
+  make infra-restart-check
+
+Result: PASS (exit 0). Four domain seed/migration records, Temporal namespace,
+OIDC realm identity and a Kafka message survived ordinary Compose down/up.
+
+Command:
+  make infra-status
+
+Result: PASS (exit 0). PostgreSQL, Temporal, Temporal UI, Kafka and OIDC were all
+running healthy; Temporal schema and namespace setup jobs were exited 0.
+
+4. Authenticated runtime live smoke
+
+Command:
+  make auth-smoke
+
+Result: PASS (exit 0) after the persistence restart. The final run reported:
+  PASS liveness and readiness against OIDC
+  PASS missing, malformed and expired token denial (401)
+  PASS customer own scope (200) and other scope denial (403)
+  PASS wrong operator/customer/service role denial (403)
+  PASS operations maker/checker, compliance reviewer/approver and auditor access
+  PASS integration service access and internal-service denial
+  PASS operations and compliance maker/checker role separation
+  PASS development controls disabled by default (404)
+  PASS invalid correlation ID rejected/replaced without reflection (400)
+  PASS SIGTERM graceful shutdown with exit 0
+  PASS every service log line parsed as JSON and contained no local credential value
+
+The smoke runner deletes its successful temporary JSON log and never prints tokens
+or credentials. The payment API process was stopped by the test.
+
+5. Resolved intermediate failures
+
+The first sandboxed Go command could not write the host Go cache; the same complete
+gate was rerun with an allowed temporary build cache and normal module-cache access.
+The first smoke harness attempt treated connection-refused during service startup as
+fatal; bounded retry handling was added. The first imported synthetic human users
+lacked Keycloak-required profile fields; the fixture was corrected, only the new
+synthetic `gtb` realm was cleanly reimported, and all final live/restart checks above
+passed. No I02 data volume was reset.
+
+Hosted CI was not run in this session. The infrastructure workflow now installs the
+pinned Go toolchain and includes `make auth-smoke` after the existing live checks.

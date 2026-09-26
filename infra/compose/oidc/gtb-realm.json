@@ -1,0 +1,200 @@
+{
+  "realm": "gtb",
+  "enabled": true,
+  "displayName": "Global Trust Bank local",
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "resetPasswordAllowed": false,
+  "loginWithEmailAllowed": false,
+  "accessTokenLifespan": 300,
+  "roles": {
+    "realm": [
+      {"name": "customer"},
+      {"name": "ops_viewer"},
+      {"name": "investigator"},
+      {"name": "approver"},
+      {"name": "compliance_reviewer"},
+      {"name": "compliance_approver"},
+      {"name": "auditor"},
+      {"name": "platform_admin"},
+      {"name": "integration_ingress"},
+      {"name": "internal_service"}
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "payment-api",
+      "name": "Payment API audience",
+      "enabled": true,
+      "publicClient": true,
+      "bearerOnly": true
+    },
+    {
+      "clientId": "gtb-cli",
+      "name": "Local interactive smoke client",
+      "enabled": true,
+      "publicClient": true,
+      "directAccessGrantsEnabled": true,
+      "standardFlowEnabled": false,
+      "protocol": "openid-connect",
+      "protocolMappers": [
+        {
+          "name": "payment-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {"included.client.audience": "payment-api", "access.token.claim": "true"}
+        },
+        {
+          "name": "customer-ids",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "config": {"user.attribute": "customer_ids", "claim.name": "customer_ids", "jsonType.label": "String", "multivalued": "true", "access.token.claim": "true"}
+        }
+      ]
+    },
+    {
+      "clientId": "rail-simulator",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "${RAIL_SIMULATOR_OIDC_SECRET}",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "protocolMappers": [
+        {"name": "payment-api-audience", "protocol": "openid-connect", "protocolMapper": "oidc-audience-mapper", "config": {"included.client.audience": "payment-api", "access.token.claim": "true"}}
+      ]
+    },
+    {
+      "clientId": "screening-simulator",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "${SCREENING_SIMULATOR_OIDC_SECRET}",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "protocolMappers": [
+        {"name": "payment-api-audience", "protocol": "openid-connect", "protocolMapper": "oidc-audience-mapper", "config": {"included.client.audience": "payment-api", "access.token.claim": "true"}}
+      ]
+    },
+    {
+      "clientId": "core-banking-service",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "${CORE_BANKING_OIDC_SECRET}",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "protocolMappers": [
+        {"name": "payment-api-audience", "protocol": "openid-connect", "protocolMapper": "oidc-audience-mapper", "config": {"included.client.audience": "payment-api", "access.token.claim": "true"}}
+      ]
+    },
+    {
+      "clientId": "event-projector",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "${EVENT_PROJECTOR_OIDC_SECRET}",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "protocolMappers": [
+        {"name": "payment-api-audience", "protocol": "openid-connect", "protocolMapper": "oidc-audience-mapper", "config": {"included.client.audience": "payment-api", "access.token.claim": "true"}}
+      ]
+    },
+    {
+      "clientId": "expired-token-test",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "${EXPIRED_TOKEN_TEST_OIDC_SECRET}",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "attributes": {"access.token.lifespan": "1"},
+      "protocolMappers": [
+        {"name": "payment-api-audience", "protocol": "openid-connect", "protocolMapper": "oidc-audience-mapper", "config": {"included.client.audience": "payment-api", "access.token.claim": "true"}}
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "customer.demo",
+      "enabled": true,
+      "firstName": "Demo",
+      "lastName": "Customer",
+      "email": "customer.demo@gtb.invalid",
+      "emailVerified": true,
+      "credentials": [{"type": "password", "value": "${GTB_CUSTOMER_PASSWORD}", "temporary": false}],
+      "realmRoles": ["customer"],
+      "attributes": {"customer_ids": ["cust-demo-001"]}
+    },
+    {
+      "username": "operations.demo",
+      "enabled": true,
+      "firstName": "Demo",
+      "lastName": "Operations",
+      "email": "operations.demo@gtb.invalid",
+      "emailVerified": true,
+      "credentials": [{"type": "password", "value": "${GTB_OPERATIONS_PASSWORD}", "temporary": false}],
+      "realmRoles": ["ops_viewer", "investigator"]
+    },
+    {
+      "username": "operations.approver",
+      "enabled": true,
+      "firstName": "Demo",
+      "lastName": "Operations Approver",
+      "email": "operations.approver@gtb.invalid",
+      "emailVerified": true,
+      "credentials": [{"type": "password", "value": "${GTB_OPERATIONS_APPROVER_PASSWORD}", "temporary": false}],
+      "realmRoles": ["ops_viewer", "approver"]
+    },
+    {
+      "username": "compliance.demo",
+      "enabled": true,
+      "firstName": "Demo",
+      "lastName": "Compliance",
+      "email": "compliance.demo@gtb.invalid",
+      "emailVerified": true,
+      "credentials": [{"type": "password", "value": "${GTB_COMPLIANCE_PASSWORD}", "temporary": false}],
+      "realmRoles": ["compliance_reviewer"]
+    },
+    {
+      "username": "compliance.approver",
+      "enabled": true,
+      "firstName": "Demo",
+      "lastName": "Compliance Approver",
+      "email": "compliance.approver@gtb.invalid",
+      "emailVerified": true,
+      "credentials": [{"type": "password", "value": "${GTB_COMPLIANCE_APPROVER_PASSWORD}", "temporary": false}],
+      "realmRoles": ["compliance_approver"]
+    },
+    {
+      "username": "auditor.demo",
+      "enabled": true,
+      "firstName": "Demo",
+      "lastName": "Auditor",
+      "email": "auditor.demo@gtb.invalid",
+      "emailVerified": true,
+      "credentials": [{"type": "password", "value": "${GTB_AUDITOR_PASSWORD}", "temporary": false}],
+      "realmRoles": ["auditor"]
+    },
+    {
+      "username": "platform.demo",
+      "enabled": true,
+      "firstName": "Demo",
+      "lastName": "Administrator",
+      "email": "platform.demo@gtb.invalid",
+      "emailVerified": true,
+      "credentials": [{"type": "password", "value": "${GTB_PLATFORM_ADMIN_PASSWORD}", "temporary": false}],
+      "realmRoles": ["platform_admin"]
+    },
+    {"username": "service-account-rail-simulator", "enabled": true, "serviceAccountClientId": "rail-simulator", "realmRoles": ["integration_ingress"]},
+    {"username": "service-account-screening-simulator", "enabled": true, "serviceAccountClientId": "screening-simulator", "realmRoles": ["integration_ingress"]},
+    {"username": "service-account-core-banking-service", "enabled": true, "serviceAccountClientId": "core-banking-service", "realmRoles": ["internal_service"]},
+    {"username": "service-account-event-projector", "enabled": true, "serviceAccountClientId": "event-projector", "realmRoles": ["internal_service"]},
+    {"username": "service-account-expired-token-test", "enabled": true, "serviceAccountClientId": "expired-token-test", "realmRoles": ["integration_ingress"]}
+  ]
+}

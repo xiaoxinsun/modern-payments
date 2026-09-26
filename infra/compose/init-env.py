@@ -15,7 +15,13 @@ with os.fdopen(descriptor, "r+") as output:
     required = ("POSTGRES_ADMIN_PASSWORD", "TEMPORAL_DB_PASSWORD",
                 "OIDC_DB_PASSWORD", "OIDC_ADMIN_PASSWORD", "PAYMENT_DB_PASSWORD",
                 "COREBANKING_DB_PASSWORD", "PROJECTIONS_DB_PASSWORD",
-                "SIMULATORS_DB_PASSWORD")
+                "SIMULATORS_DB_PASSWORD", "GTB_CUSTOMER_PASSWORD",
+                "GTB_OPERATIONS_PASSWORD", "GTB_OPERATIONS_APPROVER_PASSWORD",
+                "GTB_COMPLIANCE_PASSWORD", "GTB_COMPLIANCE_APPROVER_PASSWORD",
+                "GTB_AUDITOR_PASSWORD", "GTB_PLATFORM_ADMIN_PASSWORD",
+                "RAIL_SIMULATOR_OIDC_SECRET", "SCREENING_SIMULATOR_OIDC_SECRET",
+                "CORE_BANKING_OIDC_SECRET", "EVENT_PROJECTOR_OIDC_SECRET",
+                "EXPIRED_TOKEN_TEST_OIDC_SECRET")
     missing = [name for name in required if name not in names]
     if missing:
         if not existing:
