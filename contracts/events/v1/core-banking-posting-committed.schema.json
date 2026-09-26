@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gtb.local/contracts/events/v1/core-banking-posting-committed.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["operationId", "postingId", "reversalOfPostingId", "entries"],
+  "properties": {
+    "operationId": { "$ref": "../../common/v1/types.schema.json#/$defs/ID" },
+    "postingId": { "$ref": "../../common/v1/types.schema.json#/$defs/ID" },
+    "reversalOfPostingId": {
+      "oneOf": [
+        { "$ref": "../../common/v1/types.schema.json#/$defs/ID" },
+        { "type": "null" }
+      ]
+    },
+    "entries": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["accountId", "side", "amount"],
+        "properties": {
+          "accountId": { "$ref": "../../common/v1/types.schema.json#/$defs/ID" },
+          "side": { "enum": ["DEBIT", "CREDIT"] },
+          "amount": { "$ref": "../../common/v1/types.schema.json#/$defs/Money" }
+        }
+      }
+    }
+  }
+}

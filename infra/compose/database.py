@@ -122,7 +122,7 @@ def seed():
     sql = (ROOT / "backend/seeds/local.sql").read_text()
     for domain in DOMAINS:
         domain_sql(domain, sql)
-        print(f"Seeded {domain}: synthetic I02 persistence marker")
+        print(f"Seeded {domain}: versioned synthetic fixtures")
 
 
 def main():

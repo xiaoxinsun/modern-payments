@@ -1,0 +1,17 @@
+{
+  "operationId": "30000000-0000-4000-8000-000000000001",
+  "postingId": "40000000-0000-4000-8000-000000000001",
+  "reversalOfPostingId": null,
+  "entries": [
+    {
+      "accountId": "10000000-0000-4000-8000-000000000004",
+      "side": "DEBIT",
+      "amount": { "amountMinor": "120000", "currency": "SGD" }
+    },
+    {
+      "accountId": "10000000-0000-4000-8000-000000000001",
+      "side": "CREDIT",
+      "amount": { "amountMinor": "120000", "currency": "SGD" }
+    }
+  ]
+}

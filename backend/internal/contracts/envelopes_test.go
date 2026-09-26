@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -31,7 +32,7 @@ func compiler(t *testing.T) *jsonschema.Compiler {
 	t.Helper()
 	c := jsonschema.NewCompiler()
 	c.AssertFormat()
-	for _, path := range []string{"common/v1/types.schema.json", "events/v1/envelope.schema.json", "simulators/v1/message.schema.json"} {
+	for _, path := range []string{"common/v1/types.schema.json", "events/v1/envelope.schema.json", "events/v1/core-banking-posting-committed.schema.json", "simulators/v1/message.schema.json"} {
 		if err := c.AddResource(schemaRoot+path, readJSON(t, "../../../contracts/"+path)); err != nil {
 			t.Fatal(err)
 		}
@@ -54,6 +55,7 @@ func TestSchemasAndExamples(t *testing.T) {
 		{"money.json", "common/v1/types.schema.json#/$defs/Money"},
 		{"error.json", "common/v1/types.schema.json#/$defs/ErrorEnvelope"},
 		{"event.json", "events/v1/envelope.schema.json"},
+		{"core-banking-posting-committed.json", "events/v1/core-banking-posting-committed.schema.json"},
 		{"simulator-message.json", "simulators/v1/message.schema.json"},
 	} {
 		t.Run(tc.file, func(t *testing.T) {
@@ -201,33 +203,68 @@ func TestOpenAPIAndReferences(t *testing.T) {
 	if err := c.AddResource(metaID, meta); err != nil {
 		t.Fatal(err)
 	}
-	api := readJSON(t, "../../../contracts/openapi/v1/shared.json").(map[string]any)
-	if err := compile(t, c, metaID).Validate(api); err != nil {
-		t.Fatal(err)
+	metaSchema := compile(t, c, metaID)
+	// Register every document first so cross-document component refs resolve.
+	documents := []string{"shared.json", "core-banking.json"}
+	apis := make(map[string]any, len(documents))
+	for _, name := range documents {
+		api := readJSON(t, "../../../contracts/openapi/v1/"+name)
+		if err := metaSchema.Validate(api); err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if err := c.AddResource(schemaRoot+"openapi/v1/"+name, api); err != nil {
+			t.Fatal(err)
+		}
+		apis[name] = api
 	}
 	// The official OpenAPI meta-schema does not validate Schema Objects. Compile
 	// every schema and resolve references offline, including shared component refs.
-	apiURL := schemaRoot + "openapi/v1/shared.json"
-	if err := c.AddResource(apiURL, api); err != nil {
-		t.Fatal(err)
-	}
-	var visit func(any, string)
-	visit = func(node any, pointer string) {
-		switch node := node.(type) {
-		case map[string]any:
-			for key, child := range node {
-				escaped := strings.ReplaceAll(strings.ReplaceAll(key, "~", "~0"), "/", "~1")
-				childPointer := pointer + "/" + escaped
-				if key == "schema" || pointer == "/components/schemas" {
-					compile(t, c, apiURL+"#"+childPointer)
+	for _, name := range documents {
+		apiURL := schemaRoot + "openapi/v1/" + name
+		var visit func(any, string)
+		visit = func(node any, pointer string) {
+			switch node := node.(type) {
+			case map[string]any:
+				for key, child := range node {
+					escaped := strings.ReplaceAll(strings.ReplaceAll(key, "~", "~0"), "/", "~1")
+					childPointer := pointer + "/" + escaped
+					if key == "schema" || pointer == "/components/schemas" {
+						compile(t, c, apiURL+"#"+childPointer)
+					}
+					if key == "$ref" && pointer != "" {
+						if ref, ok := child.(string); ok && strings.HasPrefix(ref, "shared.json#") {
+							resolveReference(t, schemaRoot+"openapi/v1/"+ref, apis)
+						}
+					}
+					visit(child, childPointer)
 				}
-				visit(child, childPointer)
+			case []any:
+				for index, child := range node {
+					visit(child, pointer+"/"+strconv.Itoa(index))
+				}
 			}
 		}
+		visit(apis[name], "")
 	}
-	visit(api, "")
 	// Guard against accidentally dropping the offline meta-schema fixture.
 	if filepath.Base(metaID) != "2022-10-07" {
 		t.Fatal("unexpected OpenAPI meta-schema version")
+	}
+}
+
+// resolveReference fails when a cross-document component reference does not
+// resolve to an existing component.
+func resolveReference(t *testing.T, ref string, apis map[string]any) {
+	t.Helper()
+	document, fragment, _ := strings.Cut(strings.TrimPrefix(ref, schemaRoot+"openapi/v1/"), "#")
+	var node any = apis[document]
+	for _, part := range strings.Split(strings.TrimPrefix(fragment, "/"), "/") {
+		object, ok := node.(map[string]any)
+		if !ok {
+			t.Fatalf("unresolved OpenAPI reference %s", ref)
+		}
+		if node, ok = object[part]; !ok {
+			t.Fatalf("unresolved OpenAPI reference %s", ref)
+		}
 	}
 }

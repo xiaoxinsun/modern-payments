@@ -8,8 +8,10 @@ import (
 	"testing"
 )
 
-// Inspect transitive dependencies, so an indirect transport import cannot bypass
-// the domain boundary. New domain subpackages are covered automatically.
+// Inspect direct standard-library imports and transitive project dependencies.
+// Maintained value libraries may themselves implement database/sql or net
+// interfaces, so those standard packages are forbidden at the domain source
+// boundary rather than anywhere in a third-party dependency graph.
 func TestDomainDependencies(t *testing.T) {
 	cmd := exec.Command("go", "list", "-json", "./...")
 	cmd.Dir = "../.."
@@ -22,6 +24,7 @@ func TestDomainDependencies(t *testing.T) {
 	for {
 		var pkg struct {
 			ImportPath string
+			Imports    []string
 			Deps       []string
 		}
 		if err := decoder.Decode(&pkg); err == io.EOF {
@@ -34,8 +37,13 @@ func TestDomainDependencies(t *testing.T) {
 			continue
 		}
 		checked++
+		for _, imported := range pkg.Imports {
+			if imported == "net" || strings.HasPrefix(imported, "net/") || strings.HasPrefix(imported, "database/") {
+				t.Errorf("%s directly imports infrastructure %s", pkg.ImportPath, imported)
+			}
+		}
 		for _, dep := range pkg.Deps {
-			if dep == "net" || strings.HasPrefix(dep, "net/") || strings.HasPrefix(dep, "database/") || strings.HasPrefix(dep, "go.temporal.io/") {
+			if strings.HasPrefix(dep, "go.temporal.io/") {
 				t.Errorf("%s depends on infrastructure %s", pkg.ImportPath, dep)
 			}
 			if strings.HasPrefix(dep, "gtb.local/backend/") && dep != "gtb.local/backend/internal/platform/value" && !strings.HasPrefix(dep, pkg.ImportPath+"/") {

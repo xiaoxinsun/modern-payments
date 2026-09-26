@@ -1,0 +1,110 @@
+B01 Core Banking accounts and posting engine completion evidence
+Date: 2026-09-26
+Branch/base: main, started from 1b5eb8b (phase Infra-03 implemented); B01 changes uncommitted
+Toolchain: go version go1.27.1 darwin/arm64, GOTOOLCHAIN=local
+
+No credential, access token, generated .env content, or temporary service log is
+included in this evidence.
+
+0. Reconciliation of an interrupted session
+
+The previous session's checkpoint (21:35 local) predated later work. Observed
+state before any new change:
+- Migrations 0002_accounts_and_posting.sql and 0003_accounting_guards.sql were
+  already applied to the local corebanking database (applied 13:35Z and 13:41Z)
+  with SHA-256 matching the files (513ba5188b91…, 0ce46b11e07a…). Both are
+  therefore frozen; no applied migration was edited.
+- Seed dataset local-b01-v1 was already applied.
+- Unrecorded files: 0003 migration, infra/compose/tests/corebanking_smoke.py
+  plus its Make target, Keycloak core-banking-service audience mapper, contract
+  test registration of the posting-committed event schema.
+- Gap found: the Core Banking port had only a prose README, while ADR 0002 and
+  contracts/README require OpenAPI for synchronous boundaries. Added
+  contracts/openapi/v1/core-banking.json, a generalized OpenAPI contract test and
+  handler-vs-contract tests; ADR 0008 records the design.
+
+1. Complete backend gate
+
+Command:
+  make check
+
+Result: PASS (exit 0). Toolchain, fmt-check, mod-check, vet, unit/contract/
+architecture tests, race detector and all nine binaries built. Includes:
+- corebanking/domain: scenario A–E entry balance, unbalanced/bounds rejection,
+  balance direction per account kind.
+- corebanking: TestHTTPResponsesMatchOpenAPIContract (8 routes' requests and
+  responses validated against core-banking.json), TestHTTPErrorMapping (409 for
+  conflict/insufficient/expired hold, 404, 400 incl. unknown field and trailing
+  document, 500 without internal detail; all ErrorEnvelope-valid).
+- contracts: TestOpenAPIAndReferences validates shared.json and core-banking.json
+  against the vendored OpenAPI 3.1 meta-schema, compiles every schema and
+  resolves cross-document refs. Mutation check: a broken shared.json ref and an
+  invalid schema keyword each made the test fail; restored file passes.
+
+2. Migration and fixtures (live, preserved stack)
+
+Command:
+  make db-migrate db-seed
+
+Result: PASS (exit 0). All four domains "checksums verified"; seeds idempotent.
+
+Ledger-wide query on corebanking (owner login, via infra/compose/database.py):
+  unbalanced journals (per posting and currency)          0
+  journals without event or outbox row                     0
+  fixture accounts whose stored balance != entry sum       0
+  accounts with active holds exceeding booked balance      0
+  fixture balances: maya 100000, daniel 20000, clearing 0,
+  settlement/nostro 120000, suspense 0 (minor units, SGD)
+
+3. PostgreSQL integration (exit criteria)
+
+Command:
+  make corebanking-integration
+
+Result: PASS (exit 0), run twice this session. TestPostgres* cover:
+- Scenario A (reserve 1,000/900 → A2 hold-consuming debit 900/900 → A4
+  settlement) and C (evidenced return 1,000/1,000); direct UPDATE of a posted
+  entry rejected; one event and one outbox row per posting; a direct unbalanced
+  journal write is rejected at commit by the deferred balance trigger.
+- Scenario B: hold release restores 1,000/1,000; compensating reversal linked to
+  the original restores Maya and clears the payable; statement shows both lines.
+- Scenario D: Maya 900/900, Daniel 300/300 in one posting.
+- Scenario E: E1 direct credit; E2a suspense then E2b clearance without a second
+  settlement debit.
+- Two concurrent 70.00 reservations on 100.00: exactly one success and one
+  insufficient-funds result; available 30.00.
+- Lost reply: repeating reserve and post with the same operation ID returns the
+  same hold / posting / event; conflicting payload returns ErrConflict; operation
+  lookup resolves the posting; exactly 1 journal, 2 entries, 1 event.
+
+4. Authenticated API smoke
+
+Command:
+  make corebanking-smoke
+
+Result: PASS (exit 0). Missing token 401; wrong service identity 401; internal
+service account lookup 200; reserve 200; duplicate reserve replays 200;
+conflicting operation 409; operation lookup after simulated lost reply 200;
+release 200; statement 200; SIGTERM graceful shutdown exit 0; structured logs
+parsed with no credential values.
+
+5. Infrastructure and authentication regression
+
+Commands and results:
+  make infra-verify     PASS (exit 0): health, concurrent migrations/re-seed
+                        preserve data, 41 cross-domain/admin writes denied,
+                        checksum rejection and atomic rollback.
+  make auth-smoke       PASS (exit 0): all I03 role/scope/token/correlation checks.
+  make infra-status     PASS (exit 0): postgres, kafka, oidc, temporal, temporal-ui
+                        healthy; setup jobs exited 0.
+
+6. Hygiene
+
+  git diff --check                                   PASS
+  infra/compose/.env mode 0600 and git-ignored       PASS
+  py_compile of database.py and corebanking_*.py     PASS
+  credential value scan of repository and logs       PASS (no matches)
+
+Not run: make infra-restart-check (no Compose or persistence change in B01).
+Clean-checkout setup is V02 scope; a fresh realm import includes the new
+audience mapper from the fixture.

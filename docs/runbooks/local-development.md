@@ -161,4 +161,24 @@ needed, `GTB_AUTH_JWKS_URL`. Development controls additionally require
 JWT/claim validation uses pinned `golang-jwt/jwt/v5` and `keyfunc/v3` modules;
 authorization and customer-scope decisions remain in GTB middleware.
 
-Feature tables and business seeds remain feature-phase work.
+## Core Banking (B01)
+
+`make db-migrate db-seed` applies Core Banking migrations 0002–0003 and the
+`local-b01-v1` fixtures: Maya (SGD 1,000.00), Daniel (SGD 200.00), outgoing
+clearing, settlement/nostro and incoming suspense accounts, all opened through one
+balanced journal. Seeds are idempotent and never reset data.
+
+```sh
+make corebanking-integration   # PostgreSQL: scenarios A–E, immutability, concurrency, lost reply, 409
+make corebanking-smoke         # service on loopback 18084: auth, reserve/replay/409, lookup, release, statement
+```
+
+Both build database URLs from `.env` without printing them. Integration tests
+create their own random-ID accounts beside the fixtures. The smoke adds the
+`core-banking-service` audience mapper through the Keycloak admin API when a
+realm imported before B01 lacks it; fresh realms get it from the fixture. Run
+`core-banking-service` with `GTB_DATABASE_URL`, `GTB_AUTH_AUDIENCE=core-banking-service`
+and the usual `GTB_AUTH_*` settings (default address `127.0.0.1:8084`). The port
+contract is `contracts/openapi/v1/core-banking.json`; see ADR 0008.
+
+Other feature tables and business seeds remain feature-phase work.

@@ -1,0 +1,905 @@
+{
+  "openapi": "3.1.1",
+  "info": {
+    "title": "GTB Core Banking port",
+    "version": "1.0.0",
+    "description": "Internal B01 port. Callers supply stable UUIDv4 operation IDs: the same ID and payload replays the original result; different financial fields return 409. HTTP success or failure alone is not a payment outcome; after an ambiguous reply, inspect the operation instead of minting a new ID."
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:8084"
+    }
+  ],
+  "security": [
+    {
+      "BearerAuth": []
+    }
+  ],
+  "paths": {
+    "/integrations/v1/core-banking/holds": {
+      "post": {
+        "operationId": "reserveFunds",
+        "summary": "Atomically reserve available customer funds; no overdraft.",
+        "parameters": [
+          {
+            "$ref": "shared.json#/components/parameters/CorrelationID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Committed or replayed result.",
+            "headers": {
+              "X-Correlation-ID": {
+                "$ref": "shared.json#/components/headers/CorrelationID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Hold"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "shared.json#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReserveRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/integrations/v1/core-banking/holds/{holdId}": {
+      "get": {
+        "operationId": "getHold",
+        "summary": "Inspect a hold.",
+        "parameters": [
+          {
+            "$ref": "shared.json#/components/parameters/CorrelationID"
+          },
+          {
+            "name": "holdId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "../../common/v1/types.schema.json#/$defs/ID"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Committed or replayed result.",
+            "headers": {
+              "X-Correlation-ID": {
+                "$ref": "shared.json#/components/headers/CorrelationID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Hold"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "shared.json#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/integrations/v1/core-banking/holds/{holdId}/releases": {
+      "post": {
+        "operationId": "releaseHold",
+        "summary": "Explicitly release an active hold.",
+        "parameters": [
+          {
+            "$ref": "shared.json#/components/parameters/CorrelationID"
+          },
+          {
+            "name": "holdId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "../../common/v1/types.schema.json#/$defs/ID"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Committed or replayed result.",
+            "headers": {
+              "X-Correlation-ID": {
+                "$ref": "shared.json#/components/headers/CorrelationID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Hold"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "shared.json#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReleaseRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/integrations/v1/core-banking/postings": {
+      "post": {
+        "operationId": "postTransaction",
+        "summary": "Commit a balanced immutable posting, optionally consuming one hold in the same transaction.",
+        "parameters": [
+          {
+            "$ref": "shared.json#/components/parameters/CorrelationID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Committed or replayed result.",
+            "headers": {
+              "X-Correlation-ID": {
+                "$ref": "shared.json#/components/headers/CorrelationID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Posting"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "shared.json#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PostRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/integrations/v1/core-banking/reversals": {
+      "post": {
+        "operationId": "reversePosting",
+        "summary": "Append the exact opposite of an original posting, linked to it; each original can be reversed once.",
+        "parameters": [
+          {
+            "$ref": "shared.json#/components/parameters/CorrelationID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Committed or replayed result.",
+            "headers": {
+              "X-Correlation-ID": {
+                "$ref": "shared.json#/components/headers/CorrelationID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Posting"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "shared.json#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReverseRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/integrations/v1/core-banking/operations/{operationId}": {
+      "get": {
+        "operationId": "getOperation",
+        "summary": "Recover the durable result of an operation after a lost reply.",
+        "parameters": [
+          {
+            "$ref": "shared.json#/components/parameters/CorrelationID"
+          },
+          {
+            "name": "operationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "../../common/v1/types.schema.json#/$defs/ID"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Committed or replayed result.",
+            "headers": {
+              "X-Correlation-ID": {
+                "$ref": "shared.json#/components/headers/CorrelationID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Operation"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "shared.json#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/integrations/v1/core-banking/accounts/{accountId}": {
+      "get": {
+        "operationId": "getAccount",
+        "summary": "Return booked and hold-adjusted available balances.",
+        "parameters": [
+          {
+            "$ref": "shared.json#/components/parameters/CorrelationID"
+          },
+          {
+            "name": "accountId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "../../common/v1/types.schema.json#/$defs/ID"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Committed or replayed result.",
+            "headers": {
+              "X-Correlation-ID": {
+                "$ref": "shared.json#/components/headers/CorrelationID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Account"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "shared.json#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/integrations/v1/core-banking/accounts/{accountId}/statement": {
+      "get": {
+        "operationId": "getStatement",
+        "summary": "Export immutable posting lines in commit order.",
+        "parameters": [
+          {
+            "$ref": "shared.json#/components/parameters/CorrelationID"
+          },
+          {
+            "name": "accountId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "../../common/v1/types.schema.json#/$defs/ID"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "Inclusive RFC3339 lower bound."
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "Exclusive RFC3339 upper bound."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500,
+              "default": 100
+            },
+            "description": "Maximum lines."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Committed or replayed result.",
+            "headers": {
+              "X-Correlation-ID": {
+                "$ref": "shared.json#/components/headers/CorrelationID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Statement"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "shared.json#/components/responses/Error"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "PositiveMoney": {
+        "allOf": [
+          {
+            "$ref": "../../common/v1/types.schema.json#/$defs/Money"
+          },
+          {
+            "properties": {
+              "amountMinor": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]{0,17}$"
+              }
+            }
+          }
+        ]
+      },
+      "Side": {
+        "enum": [
+          "DEBIT",
+          "CREDIT"
+        ]
+      },
+      "Entry": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "accountId",
+          "side",
+          "amount"
+        ],
+        "properties": {
+          "accountId": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/ID"
+          },
+          "side": {
+            "$ref": "#/components/schemas/Side"
+          },
+          "amount": {
+            "$ref": "#/components/schemas/PositiveMoney"
+          }
+        }
+      },
+      "Entries": {
+        "type": "array",
+        "minItems": 2,
+        "maxItems": 64,
+        "items": {
+          "$ref": "#/components/schemas/Entry"
+        },
+        "description": "Debits and credits must balance within each currency."
+      },
+      "Account": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "accountId",
+          "externalReference",
+          "accountKind",
+          "currency",
+          "bookedMinor",
+          "availableMinor",
+          "status",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "accountId": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/ID"
+          },
+          "externalReference": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "customerId": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/ID"
+          },
+          "accountKind": {
+            "enum": [
+              "CUSTOMER_DEPOSIT",
+              "OUTGOING_CLEARING",
+              "SETTLEMENT_NOSTRO",
+              "INCOMING_SUSPENSE"
+            ]
+          },
+          "currency": {
+            "enum": [
+              "SGD",
+              "USD"
+            ]
+          },
+          "bookedMinor": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,17})$",
+            "description": "Minor units as a decimal string."
+          },
+          "availableMinor": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,17})$",
+            "description": "Booked balance less active holds for customer deposits."
+          },
+          "status": {
+            "enum": [
+              "OPEN",
+              "CLOSED"
+            ]
+          },
+          "createdAt": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/Timestamp"
+          },
+          "updatedAt": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/Timestamp"
+          }
+        }
+      },
+      "Hold": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "holdId",
+          "accountId",
+          "reserveOperationId",
+          "amount",
+          "status",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "holdId": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/ID"
+          },
+          "accountId": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/ID"
+          },
+          "reserveOperationId": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/ID"
+          },
+          "amount": {
+            "$ref": "#/components/schemas/PositiveMoney"
+          },
+          "status": {
+            "enum": [
+              "ACTIVE",
+              "CONSUMED",
+              "RELEASED"
+            ]
+          },
+          "expiresAt": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/Timestamp"
+          },
+          "consumedByOperationId": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/ID"
+          },
+          "releasedByOperationId": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/ID"
+          },
+          "createdAt": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/Timestamp"
+          },
+          "updatedAt": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/Timestamp"
+          }
+        }
+      },
+      "Posting": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "postingId",
+          "operationId",
+          "description",
+          "entries",
+          "eventId",
+          "committedAt"
+        ],
+        "properties": {
+          "postingId": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/ID"
+          },
+          "operationId": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/ID"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "reversalOfPostingId": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/ID"
+          },
+          "entries": {
+            "$ref": "#/components/schemas/Entries"
+          },
+          "eventId": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/ID"
+          },
+          "committedAt": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/Timestamp"
+          }
+        }
+      },
+      "Operation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operationId",
+          "operationType",
+          "resourceType",
+          "resourceId",
+          "correlationId",
+          "committedAt"
+        ],
+        "properties": {
+          "operationId": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/ID"
+          },
+          "operationType": {
+            "enum": [
+              "RESERVE",
+              "RELEASE",
+              "POST",
+              "REVERSE"
+            ]
+          },
+          "resourceType": {
+            "enum": [
+              "HOLD",
+              "POSTING"
+            ]
+          },
+          "resourceId": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/ID"
+          },
+          "correlationId": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/ID"
+          },
+          "committedAt": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/Timestamp"
+          }
+        }
+      },
+      "StatementEntry": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "postingId",
+          "operationId",
+          "description",
+          "committedAt",
+          "side",
+          "amount"
+        ],
+        "properties": {
+          "postingId": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/ID"
+          },
+          "operationId": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/ID"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "reversalOfPostingId": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/ID"
+          },
+          "committedAt": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/Timestamp"
+          },
+          "side": {
+            "$ref": "#/components/schemas/Side"
+          },
+          "amount": {
+            "$ref": "#/components/schemas/PositiveMoney"
+          }
+        }
+      },
+      "Statement": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "accountId",
+          "entries"
+        ],
+        "properties": {
+          "accountId": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/ID"
+          },
+          "entries": {
+            "type": "array",
+            "maxItems": 500,
+            "items": {
+              "$ref": "#/components/schemas/StatementEntry"
+            }
+          }
+        }
+      },
+      "ReserveRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operationId",
+          "accountId",
+          "amount"
+        ],
+        "properties": {
+          "operationId": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/ID"
+          },
+          "accountId": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/ID"
+          },
+          "amount": {
+            "$ref": "#/components/schemas/PositiveMoney"
+          },
+          "expiresAt": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/Timestamp",
+            "description": "Optional future expiry; an expired unclaimed hold cannot be consumed."
+          }
+        }
+      },
+      "ReleaseRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operationId"
+        ],
+        "properties": {
+          "operationId": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/ID"
+          }
+        }
+      },
+      "PostRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operationId",
+          "description",
+          "entries"
+        ],
+        "properties": {
+          "operationId": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/ID"
+          },
+          "holdId": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/ID",
+            "description": "Optional active hold consumed atomically; its account must carry exactly the held debit."
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "entries": {
+            "$ref": "#/components/schemas/Entries"
+          }
+        }
+      },
+      "ReverseRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operationId",
+          "originalPostingId",
+          "description"
+        ],
+        "properties": {
+          "operationId": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/ID"
+          },
+          "originalPostingId": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/ID"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "OIDC access token with audience core-banking-service and role internal_service."
+      }
+    }
+  }
+}

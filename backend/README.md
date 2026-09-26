@@ -31,7 +31,8 @@ offline after `make deps`. Integration tests arrive with infrastructure/features
 `payment-api` is the I03 runtime reference composition root. It serves public
 `/health/live` and OIDC-backed `/health/ready` endpoints plus protected customer,
 operations and integration demonstration routes; no payment business endpoint is
-implemented yet. The other eight executables remain feature-phase placeholders.
+implemented yet. `core-banking-service` (B01) serves the authenticated Core Banking
+port; see ADR 0008. The other seven executables remain feature-phase placeholders.
 See the local runbook for `make auth-smoke` and runtime environment variables.
 For administrator/owner connection details, database and schema inventory, and
 interactive `docker exec` behavior, see the [database guide](migrations/README.md).

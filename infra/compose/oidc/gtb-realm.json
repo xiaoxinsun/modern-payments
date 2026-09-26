@@ -88,7 +88,8 @@
       "standardFlowEnabled": false,
       "directAccessGrantsEnabled": false,
       "protocolMappers": [
-        {"name": "payment-api-audience", "protocol": "openid-connect", "protocolMapper": "oidc-audience-mapper", "config": {"included.client.audience": "payment-api", "access.token.claim": "true"}}
+        {"name": "payment-api-audience", "protocol": "openid-connect", "protocolMapper": "oidc-audience-mapper", "config": {"included.client.audience": "payment-api", "access.token.claim": "true"}},
+        {"name": "core-banking-service-audience", "protocol": "openid-connect", "protocolMapper": "oidc-audience-mapper", "config": {"included.client.audience": "core-banking-service", "access.token.claim": "true"}}
       ]
     },
     {
