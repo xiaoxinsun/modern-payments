@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gtb.local/contracts/events/v1/envelope.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "eventId",
+    "aggregateId",
+    "correlationId",
+    "causationId",
+    "eventType",
+    "aggregateType",
+    "source",
+    "aggregateVersion",
+    "eventSequence",
+    "occurredAt",
+    "recordedAt",
+    "payload"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "eventId": {
+      "$ref": "../../common/v1/types.schema.json#/$defs/ID"
+    },
+    "aggregateId": {
+      "$ref": "../../common/v1/types.schema.json#/$defs/ID"
+    },
+    "correlationId": {
+      "$ref": "../../common/v1/types.schema.json#/$defs/ID"
+    },
+    "causationId": {
+      "$ref": "../../common/v1/types.schema.json#/$defs/ID"
+    },
+    "eventType": {
+      "$ref": "../../common/v1/types.schema.json#/$defs/Name"
+    },
+    "aggregateType": {
+      "$ref": "../../common/v1/types.schema.json#/$defs/Name"
+    },
+    "source": {
+      "$ref": "../../common/v1/types.schema.json#/$defs/Name"
+    },
+    "aggregateVersion": {
+      "$ref": "../../common/v1/types.schema.json#/$defs/PositiveSequence"
+    },
+    "eventSequence": {
+      "$ref": "../../common/v1/types.schema.json#/$defs/PositiveSequence"
+    },
+    "occurredAt": {
+      "$ref": "../../common/v1/types.schema.json#/$defs/Timestamp"
+    },
+    "recordedAt": {
+      "$ref": "../../common/v1/types.schema.json#/$defs/Timestamp"
+    },
+    "payload": {
+      "type": "object"
+    }
+  }
+}

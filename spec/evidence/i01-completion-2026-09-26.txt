@@ -1,0 +1,172 @@
+$ command -v go
+/opt/homebrew/bin/go
+$ go version
+go version go1.27.1 darwin/arm64
+$ go env GOROOT
+/opt/homebrew/Cellar/go/1.27.1/libexec
+
+$ GOCACHE=/private/tmp/gtb-global-go-cache GOPATH=/private/tmp/gtb-global-go-path GOPROXY=off make check
+Go toolchain is the global Homebrew installation; only caches live under /private/tmp.
+Make exports GOTOOLCHAIN=local; no automatic toolchain downloads.
+
+go version go1.27.1 darwin/arm64
+cd backend && go mod tidy -diff
+cd backend && go mod verify
+all modules verified
+cd backend && go vet -mod=readonly ./...
+cd backend && go test -mod=readonly ./...
+?   	gtb.local/backend/cmd/aml-monitor	[no test files]
+?   	gtb.local/backend/cmd/bank-simulator	[no test files]
+?   	gtb.local/backend/cmd/core-banking-service	[no test files]
+?   	gtb.local/backend/cmd/event-projector	[no test files]
+?   	gtb.local/backend/cmd/payment-api	[no test files]
+?   	gtb.local/backend/cmd/payment-worker	[no test files]
+?   	gtb.local/backend/cmd/query-api	[no test files]
+?   	gtb.local/backend/cmd/rail-simulator	[no test files]
+?   	gtb.local/backend/cmd/screening-simulator	[no test files]
+?   	gtb.local/backend/internal/adapters	[no test files]
+?   	gtb.local/backend/internal/amlmonitoring	[no test files]
+ok  	gtb.local/backend/internal/architecture	0.536s
+?   	gtb.local/backend/internal/compliance	[no test files]
+ok  	gtb.local/backend/internal/contracts	0.854s
+?   	gtb.local/backend/internal/corebanking	[no test files]
+?   	gtb.local/backend/internal/payment/application	[no test files]
+?   	gtb.local/backend/internal/payment/domain	[no test files]
+?   	gtb.local/backend/internal/payment/storage	[no test files]
+ok  	gtb.local/backend/internal/platform/value	1.238s
+?   	gtb.local/backend/internal/projections	[no test files]
+?   	gtb.local/backend/internal/reconciliation	[no test files]
+?   	gtb.local/backend/internal/simulators	[no test files]
+?   	gtb.local/backend/internal/workflows	[no test files]
+cd backend && go test -mod=readonly -race ./...
+?   	gtb.local/backend/cmd/aml-monitor	[no test files]
+?   	gtb.local/backend/cmd/bank-simulator	[no test files]
+?   	gtb.local/backend/cmd/core-banking-service	[no test files]
+?   	gtb.local/backend/cmd/event-projector	[no test files]
+?   	gtb.local/backend/cmd/payment-api	[no test files]
+?   	gtb.local/backend/cmd/payment-worker	[no test files]
+?   	gtb.local/backend/cmd/query-api	[no test files]
+?   	gtb.local/backend/cmd/rail-simulator	[no test files]
+?   	gtb.local/backend/cmd/screening-simulator	[no test files]
+?   	gtb.local/backend/internal/adapters	[no test files]
+?   	gtb.local/backend/internal/amlmonitoring	[no test files]
+ok  	gtb.local/backend/internal/architecture	1.561s
+?   	gtb.local/backend/internal/compliance	[no test files]
+ok  	gtb.local/backend/internal/contracts	1.818s
+?   	gtb.local/backend/internal/corebanking	[no test files]
+?   	gtb.local/backend/internal/payment/application	[no test files]
+?   	gtb.local/backend/internal/payment/domain	[no test files]
+?   	gtb.local/backend/internal/payment/storage	[no test files]
+ok  	gtb.local/backend/internal/platform/value	2.153s
+?   	gtb.local/backend/internal/projections	[no test files]
+?   	gtb.local/backend/internal/reconciliation	[no test files]
+?   	gtb.local/backend/internal/simulators	[no test files]
+?   	gtb.local/backend/internal/workflows	[no test files]
+cd backend && go build -mod=readonly -trimpath -o ../.build/bin/ ./cmd/...
+
+exit=0
+
+$ .build/bin/aml-monitor
+aml-monitor: not implemented (I01 scaffold)
+exit=1 (expected)
+
+$ .build/bin/bank-simulator
+bank-simulator: not implemented (I01 scaffold)
+exit=1 (expected)
+
+$ .build/bin/core-banking-service
+core-banking-service: not implemented (I01 scaffold)
+exit=1 (expected)
+
+$ .build/bin/event-projector
+event-projector: not implemented (I01 scaffold)
+exit=1 (expected)
+
+$ .build/bin/payment-api
+payment-api: not implemented (I01 scaffold)
+exit=1 (expected)
+
+$ .build/bin/payment-worker
+payment-worker: not implemented (I01 scaffold)
+exit=1 (expected)
+
+$ .build/bin/query-api
+query-api: not implemented (I01 scaffold)
+exit=1 (expected)
+
+$ .build/bin/rail-simulator
+rail-simulator: not implemented (I01 scaffold)
+exit=1 (expected)
+
+$ .build/bin/screening-simulator
+screening-simulator: not implemented (I01 scaffold)
+exit=1 (expected)
+
+PASS: all nine global-toolchain binaries retain explicit scaffold failure behavior.
+
+Final gate after tightening zero/year-zero timestamp rejection and adding timestamp cases:
+$ GOCACHE=/private/tmp/gtb-global-go-cache GOPATH=/private/tmp/gtb-global-go-path GOPROXY=off make check
+go version go1.27.1 darwin/arm64
+cd backend && go mod tidy -diff
+cd backend && go mod verify
+all modules verified
+cd backend && go vet -mod=readonly ./...
+cd backend && go test -mod=readonly ./...
+?   	gtb.local/backend/cmd/aml-monitor	[no test files]
+?   	gtb.local/backend/cmd/bank-simulator	[no test files]
+?   	gtb.local/backend/cmd/core-banking-service	[no test files]
+?   	gtb.local/backend/cmd/event-projector	[no test files]
+?   	gtb.local/backend/cmd/payment-api	[no test files]
+?   	gtb.local/backend/cmd/payment-worker	[no test files]
+?   	gtb.local/backend/cmd/query-api	[no test files]
+?   	gtb.local/backend/cmd/rail-simulator	[no test files]
+?   	gtb.local/backend/cmd/screening-simulator	[no test files]
+?   	gtb.local/backend/internal/adapters	[no test files]
+?   	gtb.local/backend/internal/amlmonitoring	[no test files]
+ok  	gtb.local/backend/internal/architecture	(cached)
+?   	gtb.local/backend/internal/compliance	[no test files]
+ok  	gtb.local/backend/internal/contracts	0.474s
+?   	gtb.local/backend/internal/corebanking	[no test files]
+?   	gtb.local/backend/internal/payment/application	[no test files]
+?   	gtb.local/backend/internal/payment/domain	[no test files]
+?   	gtb.local/backend/internal/payment/storage	[no test files]
+ok  	gtb.local/backend/internal/platform/value	(cached)
+?   	gtb.local/backend/internal/projections	[no test files]
+?   	gtb.local/backend/internal/reconciliation	[no test files]
+?   	gtb.local/backend/internal/simulators	[no test files]
+?   	gtb.local/backend/internal/workflows	[no test files]
+cd backend && go test -mod=readonly -race ./...
+?   	gtb.local/backend/cmd/aml-monitor	[no test files]
+?   	gtb.local/backend/cmd/bank-simulator	[no test files]
+?   	gtb.local/backend/cmd/core-banking-service	[no test files]
+?   	gtb.local/backend/cmd/event-projector	[no test files]
+?   	gtb.local/backend/cmd/payment-api	[no test files]
+?   	gtb.local/backend/cmd/payment-worker	[no test files]
+?   	gtb.local/backend/cmd/query-api	[no test files]
+?   	gtb.local/backend/cmd/rail-simulator	[no test files]
+?   	gtb.local/backend/cmd/screening-simulator	[no test files]
+?   	gtb.local/backend/internal/adapters	[no test files]
+?   	gtb.local/backend/internal/amlmonitoring	[no test files]
+ok  	gtb.local/backend/internal/architecture	(cached)
+?   	gtb.local/backend/internal/compliance	[no test files]
+ok  	gtb.local/backend/internal/contracts	1.535s
+?   	gtb.local/backend/internal/corebanking	[no test files]
+?   	gtb.local/backend/internal/payment/application	[no test files]
+?   	gtb.local/backend/internal/payment/domain	[no test files]
+?   	gtb.local/backend/internal/payment/storage	[no test files]
+ok  	gtb.local/backend/internal/platform/value	(cached)
+?   	gtb.local/backend/internal/projections	[no test files]
+?   	gtb.local/backend/internal/reconciliation	[no test files]
+?   	gtb.local/backend/internal/simulators	[no test files]
+?   	gtb.local/backend/internal/workflows	[no test files]
+cd backend && go build -mod=readonly -trimpath -o ../.build/bin/ ./cmd/...
+exit=0
+
+$ ruby -ryaml -e 'data = YAML.load_file(".github/workflows/backend.yml"); abort "missing check job" unless data.fetch("jobs").key?("check"); puts "PASS: workflow YAML parses and defines check job"'
+PASS: workflow YAML parses and defines check job
+exit=0
+
+$ git diff --check
+exit=0
+
+Hosted GitHub Actions has not been executed. Infrastructure and integration checks belong to later phases.

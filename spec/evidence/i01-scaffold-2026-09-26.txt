@@ -1,0 +1,99 @@
+I01 first scope item validation — 2026-09-26; cwd: backend/
+Environment: PATH=/private/tmp/gtb-toolchains/1.26.8/go/bin:$PATH GOTOOLCHAIN=local GOCACHE=/private/tmp/gtb-go-cache GOPATH=/private/tmp/gtb-go-path GOPROXY=off
+Official Darwin ARM64 Go archive SHA-256 verified: a012b25b571bd0138a03dcd25375ceba866fe5ca822f426d2c66a4de56fd3f4b
+$ go version
+go version go1.26.8 darwin/arm64
+
+exit=0
+$ gofmt -l .
+
+exit=0
+$ go vet ./...
+
+exit=0
+$ go test ./...
+?   	gtb.local/backend/cmd/aml-monitor	[no test files]
+?   	gtb.local/backend/cmd/bank-simulator	[no test files]
+?   	gtb.local/backend/cmd/core-banking-service	[no test files]
+?   	gtb.local/backend/cmd/event-projector	[no test files]
+?   	gtb.local/backend/cmd/payment-api	[no test files]
+?   	gtb.local/backend/cmd/payment-worker	[no test files]
+?   	gtb.local/backend/cmd/query-api	[no test files]
+?   	gtb.local/backend/cmd/rail-simulator	[no test files]
+?   	gtb.local/backend/cmd/screening-simulator	[no test files]
+?   	gtb.local/backend/internal/adapters	[no test files]
+?   	gtb.local/backend/internal/amlmonitoring	[no test files]
+?   	gtb.local/backend/internal/compliance	[no test files]
+?   	gtb.local/backend/internal/corebanking	[no test files]
+?   	gtb.local/backend/internal/payment/application	[no test files]
+?   	gtb.local/backend/internal/payment/domain	[no test files]
+?   	gtb.local/backend/internal/payment/storage	[no test files]
+?   	gtb.local/backend/internal/projections	[no test files]
+?   	gtb.local/backend/internal/reconciliation	[no test files]
+?   	gtb.local/backend/internal/simulators	[no test files]
+?   	gtb.local/backend/internal/workflows	[no test files]
+
+exit=0
+$ go build -o /private/tmp/gtb-i01-bin/ ./cmd/...
+
+exit=0
+$ go list ./cmd/...
+gtb.local/backend/cmd/aml-monitor
+gtb.local/backend/cmd/bank-simulator
+gtb.local/backend/cmd/core-banking-service
+gtb.local/backend/cmd/event-projector
+gtb.local/backend/cmd/payment-api
+gtb.local/backend/cmd/payment-worker
+gtb.local/backend/cmd/query-api
+gtb.local/backend/cmd/rail-simulator
+gtb.local/backend/cmd/screening-simulator
+
+exit=0
+$ go list -f '{{join .Imports "
+"}}' ./internal/payment/domain
+template: main:1: unterminated quoted string
+
+exit=1
+Validation command correction: initial go list template contained a literal newline inside a quoted Go string. No implementation change; use {{len .Imports}} to inspect the empty import set.
+$ go list -f '{{len .Imports}}' ./internal/payment/domain
+0
+
+exit=0
+$ /private/tmp/gtb-i01-bin/payment-api
+payment-api: not implemented (I01 scaffold)
+
+exit=1
+$ /private/tmp/gtb-i01-bin/query-api
+query-api: not implemented (I01 scaffold)
+
+exit=1
+$ /private/tmp/gtb-i01-bin/payment-worker
+payment-worker: not implemented (I01 scaffold)
+
+exit=1
+$ /private/tmp/gtb-i01-bin/event-projector
+event-projector: not implemented (I01 scaffold)
+
+exit=1
+$ /private/tmp/gtb-i01-bin/core-banking-service
+core-banking-service: not implemented (I01 scaffold)
+
+exit=1
+$ /private/tmp/gtb-i01-bin/bank-simulator
+bank-simulator: not implemented (I01 scaffold)
+
+exit=1
+$ /private/tmp/gtb-i01-bin/rail-simulator
+rail-simulator: not implemented (I01 scaffold)
+
+exit=1
+$ /private/tmp/gtb-i01-bin/screening-simulator
+screening-simulator: not implemented (I01 scaffold)
+
+exit=1
+$ /private/tmp/gtb-i01-bin/aml-monitor
+aml-monitor: not implemented (I01 scaffold)
+
+exit=1
+PASS: formatting, vet, package compilation, nine binaries, empty domain import set, and nine explicit unimplemented exits.
+No unit or contract tests exist yet; go test reports [no test files]. Schema validation, CI and infrastructure checks are not run at this checkpoint.

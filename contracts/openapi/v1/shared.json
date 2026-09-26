@@ -1,0 +1,104 @@
+{
+  "openapi": "3.1.1",
+  "info": {
+    "title": "GTB shared API components",
+    "version": "1.0.0",
+    "description": "Reusable I01 contracts only. Feature phases add paths and enforce authorization."
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "Money": {
+        "$ref": "../../common/v1/types.schema.json#/$defs/Money"
+      },
+      "ID": {
+        "$ref": "../../common/v1/types.schema.json#/$defs/ID"
+      },
+      "ErrorEnvelope": {
+        "$ref": "../../common/v1/types.schema.json#/$defs/ErrorEnvelope"
+      }
+    },
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Validated OIDC access token; authorization scopes are enforced per operation in I03 and feature phases."
+      }
+    },
+    "parameters": {
+      "CorrelationID": {
+        "name": "X-Correlation-ID",
+        "in": "header",
+        "required": false,
+        "schema": {
+          "$ref": "../../common/v1/types.schema.json#/$defs/ID"
+        },
+        "description": "Use a valid supplied UUIDv4 or generate one when absent; echo on every response."
+      },
+      "IdempotencyKey": {
+        "name": "Idempotency-Key",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9._:-]+$"
+        },
+        "description": "Required for durable mutation commands; scope by channel and authenticated customer/actor."
+      },
+      "Limit": {
+        "name": "limit",
+        "in": "query",
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 50
+        }
+      },
+      "Cursor": {
+        "name": "cursor",
+        "in": "query",
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "description": "Opaque cursor bound to authorization scope, filters and stable ordering."
+      }
+    },
+    "headers": {
+      "CorrelationID": {
+        "description": "Correlation identifier echoed on all responses.",
+        "required": true,
+        "schema": {
+          "$ref": "../../common/v1/types.schema.json#/$defs/ID"
+        }
+      }
+    },
+    "responses": {
+      "Error": {
+        "description": "Safe error envelope; transport errors do not establish payment business outcomes.",
+        "headers": {
+          "X-Correlation-ID": {
+            "$ref": "#/components/headers/CorrelationID"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      }
+    }
+  },
+  "security": [
+    {
+      "BearerAuth": []
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "messageId": "rail-example-001",
+  "source": "instant-rail",
+  "messageType": "SettlementEvidence",
+  "correlationId": "d6282a46-c2ce-4c47-9308-f0c7bf9aa031",
+  "occurredAt": "2026-09-26T08:00:00Z",
+  "payload": {}
+}

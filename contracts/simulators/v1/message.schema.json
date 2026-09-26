@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gtb.local/contracts/simulators/v1/message.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "messageId",
+    "source",
+    "messageType",
+    "correlationId",
+    "occurredAt",
+    "payload"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "messageId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "source": {
+      "$ref": "../../common/v1/types.schema.json#/$defs/Name"
+    },
+    "messageType": {
+      "$ref": "../../common/v1/types.schema.json#/$defs/Name"
+    },
+    "correlationId": {
+      "$ref": "../../common/v1/types.schema.json#/$defs/ID"
+    },
+    "occurredAt": {
+      "$ref": "../../common/v1/types.schema.json#/$defs/Timestamp"
+    },
+    "payload": {
+      "type": "object"
+    }
+  }
+}

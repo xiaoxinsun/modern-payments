@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gtb.local/contracts/common/v1/types.schema.json",
+  "$defs": {
+    "ID": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "Money": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "amountMinor",
+        "currency"
+      ],
+      "properties": {
+        "amountMinor": {
+          "type": "string",
+          "pattern": "^(0|-?[1-9][0-9]{0,17})$"
+        },
+        "currency": {
+          "enum": [
+            "SGD",
+            "USD"
+          ]
+        }
+      }
+    },
+    "PositiveSequence": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]{0,17}$"
+    },
+    "Name": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9._-]{0,127}$"
+    },
+    "Timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+      "not": {
+        "anyOf": [
+          {
+            "pattern": "^0000-"
+          },
+          {
+            "pattern": "^0001-01-01T00:00:00(\\.0{1,9})?Z$"
+          }
+        ]
+      }
+    },
+    "Error": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "message",
+        "retryable"
+      ],
+      "properties": {
+        "code": {
+          "enum": [
+            "INVALID_REQUEST",
+            "UNAUTHENTICATED",
+            "FORBIDDEN",
+            "NOT_FOUND",
+            "CONFLICT",
+            "RATE_LIMITED",
+            "DEPENDENCY_UNAVAILABLE",
+            "INTERNAL_ERROR"
+          ]
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "retryable": {
+          "type": "boolean"
+        }
+      }
+    },
+    "ErrorEnvelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "error",
+        "correlationId"
+      ],
+      "properties": {
+        "error": {
+          "$ref": "#/$defs/Error"
+        },
+        "correlationId": {
+          "$ref": "#/$defs/ID"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "error": {
+    "code": "CONFLICT",
+    "message": "Idempotency key reused with a different payload.",
+    "retryable": false
+  },
+  "correlationId": "d6282a46-c2ce-4c47-9308-f0c7bf9aa031"
+}

@@ -33,6 +33,13 @@ You are free to share and adapt the material for any purpose, including commerci
 - [`appendices/glossary.md`](appendices/glossary.md) — working glossary
 - [`notes/verification-ledger.md`](notes/verification-ledger.md) — publication fact-check list
 
+## GTB reference application
+
+The GTB reference application is being implemented alongside the manuscript.
+See [implementation progress](spec/gtb-implementation.md) and the
+[backend developer guide](backend/README.md). With Go 1.27.1 installed, run
+`make deps` then `make check` from this directory to validate the current backend.
+
 ## Suggested Git workflow
 
 ```bash
