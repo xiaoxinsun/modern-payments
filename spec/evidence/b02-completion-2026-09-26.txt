@@ -1,0 +1,166 @@
+B02 Payment command model and durable receipts completion evidence
+Date: 2026-09-26
+Branch/base: main, started from dd98381 (phase Backend-01 implemented); B02 changes uncommitted
+Toolchain: go version go1.27.1 darwin/arm64, GOTOOLCHAIN=local
+
+This evidence contains no credentials, access tokens, generated .env content or
+temporary service logs. Payment IDs below are synthetic smoke-test records.
+
+0. Migration state
+
+backend/migrations/payment/0002_payment_command_model.sql applied locally at
+2026-09-26 15:12:50Z. Recorded SHA-256 4eb562b4568c768ee53f759d234ff7c8fe8be9b94bc3dc77c5dfa2720900a426
+matches the file. The migration is now frozen. Before it was applied, a
+rolled-back dry run as the payment owner confirmed that the guards reject a
+version skip, a missing history row and a history delete.
+
+1. Complete backend gate
+
+Command:
+  make check
+Result: PASS (exit 0). Toolchain, fmt-check, mod-check (tidy diff empty, go.sum
+verified), vet, unit/contract/architecture tests, race detector and all nine
+binaries built. New B02 packages all report ok in the test and race passes:
+- payment/domain: instruction product rules and canonical hash, idempotency
+  scope, lifecycle graph, evidence requirements, UNKNOWN cannot be rejected or
+  completed blindly, version conflicts, exclusive submission/cancellation
+  claims and replay, execution-owner assignment.
+- payment/application: replay/409, replay without Core Banking, foreign/
+  unknown/system debtor denied (403), token scope and operator submit denied,
+  creditor eligibility, currency mismatch, customer-scoped reads.
+- payment/api: TestResponsesMatchOpenAPIContract (202/200/400/403/404/409/500/503
+  responses validated against the payment contract with kin-openapi),
+  TestRequestsAreValidatedAndAuthorizedBeforeTheService (14 cases incl. 401,
+  403, missing/invalid Idempotency-Key, unknown field, "010000" amount, numeric
+  amount, JPY, trailing JSON, >64 KiB body, bad path/correlation IDs; none reach
+  the service), TestEmbeddedBundleMatchesContract.
+- adapters/corebanking: only a decoded 200 or a 404 is definitive; 401, 503,
+  malformed, mismatched and unreachable responses map to dependency
+  unavailable.
+- contracts: payment.json validated against the OpenAPI 3.1 meta-schema, with all
+  schemas compiled and shared refs resolved; PaymentReceived example validated,
+  with each field required and unknown fields rejected.
+- platform/runtime: LoadServiceClient requires a secret and rejects credentials
+  in the token URL.
+
+2. Payment PostgreSQL integration (live payment database)
+
+Command:
+  make payment-integration
+Result: PASS (exit 0), verbose, not skipped:
+- TestPostgresReceiptIsAtomicAndReplayable: exactly one row in each of the 9
+  receipt tables (payments, instructions, versions, commands, idempotency,
+  audit, events, outbox, PENDING dispatch). Same scope and payload replays the
+  same payment/command IDs; a different payload returns ErrIdempotencyConflict
+  with no new rows. The stored PaymentReceived payload validates against
+  events/v1/payment-received.schema.json.
+- TestPostgresReceiptSurvivesReconnect: after the pool is closed and reopened,
+  the receipt is still RECEIVED with dispatch PENDING.
+- TestPostgresInjectedFailureLeavesNoPartialReceipt: a failure injected after
+  each of the 8 steps (payment, instruction, version, command, idempotency,
+  audit, event, dispatch) leaves 0 rows in all 9 tables; a retry then commits 1.
+- TestPostgresConcurrentDuplicatesCreateOneReceipt: 16 concurrent identical
+  requests produce 1 payment and 1 fresh receipt (15 replays).
+- TestPostgresVersionConflictsAndClaimRace: a stale expected version returns
+  ErrVersionConflict. Concurrent submission and cancellation claims at the same
+  version produce exactly 1 winner, and replaying the winner commits nothing.
+  Execution-owner assignment works; history has versions 1..5, 2 ordered event
+  sequences and 5 audit rows.
+- TestPostgresDatabaseGuardsProtectHistory: 9 direct SQL mutations rejected
+  (instruction update, idempotency/history/audit/payment delete, event update,
+  version skip, customer change, version without history).
+Also run once with -race against the live database (same tests): PASS.
+
+3. Payment API end-to-end smoke (payment-api :18082 + core-banking-service :18084, live OIDC)
+
+Command:
+  make payment-smoke
+Result: PASS (exit 0), 24 PASS lines:
+- 401 missing token; 403 operator submit; 403 debit of Daniel's account under
+  Maya's customerId; 403 customerId outside token scope; 400 non-canonical
+  amount.
+- 202 receipt, Idempotent-Replayed false, RECEIVED/NOT_SUBMITTED/version 1,
+  dispatch PENDING. Same key and payload: 202 replayed true, same paymentId and
+  commandId. Different amount: 409 CONFLICT.
+- Receipt readable by the customer (200) and operations (200), denied to
+  compliance_reviewer (403). Command receipt 200 COMMITTED.
+- payment-api SIGTERM exits 0. After restart the receipt still shows PENDING
+  dispatch, RECEIVED, version 1, and a replay returns the same payment.
+- With Core Banking stopped: a new instruction gets 503 DEPENDENCY_UNAVAILABLE
+  (retryable true), while a replay of the existing key still returns 202 with
+  the same payment.
+- Both services' logs are structured JSON with no local credential values.
+Smoke payment bb8447d5-de97-4f9d-ad95-bf2a86e9fd5c. An earlier smoke payment,
+ba93b9bc-4fea-4db0-86c7-19aea487cad8, was re-queried after `make
+infra-restart-check` (full Compose down/up): RECEIVED|1|PENDING|payment/ba93b9bc-….
+
+4. OIDC reconciliation
+
+Commands:
+  make infra-init   (added 1 missing key: PAYMENT_SERVICE_OIDC_SECRET; existing values preserved)
+  make infra-up     (Keycloak recreated with the new variable; data volumes kept)
+  make oidc-sync    (run 3+ times)
+Result: PASS. First run created the payment-service client, granted
+internal_service, declared the admin-only customer_ids profile attribute and
+added Maya's customer ID. Later runs report everything present. Token claims
+observed: customer.demo customer_ids = [cust-demo-001, 20000000-…-0001];
+payment-service aud includes core-banking-service, and its realm roles include
+internal_service.
+
+5. Regression
+
+  make auth-smoke               PASS (I03, 22 PASS lines; payment-api now started with its DB URL and service identity)
+  make corebanking-integration  PASS (B01)
+  make corebanking-smoke        PASS (B01)
+  make infra-verify             PASS (41 cross-domain/admin write denials; checksum rejection and rollback)
+  make infra-restart-check      PASS (seeds, migrations, Temporal namespace, OIDC realm, Kafka survived down/up)
+
+6. Dependency review
+
+  cd backend && go run golang.org/x/vuln/cmd/govulncheck@latest ./...   (golang.org/x/vuln v1.8.0)
+First scan: 1 finding, GO-2026-5970 (golang.org/x/text infinite loop, reached
+through pgxpool connection setup; the pre-B02 v0.29.0 was also affected).
+golang.org/x/text was upgraded to v0.42.0 (golang.org/x/sync to v0.23.0).
+Final scan: "No vulnerabilities found." (exit 0).
+New direct modules: github.com/getkin/kin-openapi v0.149.0,
+github.com/oapi-codegen/runtime v1.7.0 and golang.org/x/oauth2 v0.37.0.
+oapi-codegen v2.8.0 is a generator run via `go run` and is not a module
+requirement. MVS raised santhosh-tekuri/jsonschema/v6 from v6.0.2 to v6.0.3.
+License posture (LICENSE files checked in the module cache): kin-openapi MIT,
+oapi-codegen/runtime Apache-2.0, x/oauth2 BSD-3-Clause; new transitive modules
+(go-jsonmerge, oasdiff/yaml, oasdiff/yaml3, go-openapi/jsonpointer,
+go-openapi/swag/jsonname) are MIT and/or Apache-2.0.
+
+Not run: GitHub Actions CI (local only). The CI infrastructure job gets the new
+secret from `make infra-init` and a fresh realm import; it does not run the B02
+live checks.
+
+Addendum 2026-09-27: walkthroughs verified from a destroyed environment
+
+Requested by the user. `make infra-reset CONFIRM=delete-gtb-data` removed all
+local volumes (.env kept). docs/walkthroughs/README.md section 1 was then run as
+written:
+  make infra-init infra-up; make db-provision db-migrate db-seed; make oidc-sync; make deps build
+All exited 0. On the fresh realm import, oidc-sync found payment-service and the
+customer scope already present and only declared the customer_ids profile
+attribute.
+
+The shell and SQL code blocks of the README (helpers, services),
+b01-core-banking.md and b02-payment-commands.md were extracted from the markdown
+and run in order under zsh. Service commands were backgrounded instead of run in
+terminals, and SQL was piped with `psql -T`. Every step produced the documented
+result:
+- B01: hold, replay, 409, operation lookup, release, posting, reversal and
+  statement; the ledger queries; the append-only error.
+- B02: 202/replay/409; 403 ×3, 400 ×4 and 401; the domestic-instant receipt;
+  receipt and command reads; ops 200 and compliance 403; Maya unchanged; all nine
+  receipt tables; both guard errors; restart replay; Core Banking outage (503,
+  replay still true).
+- The code tour's go test and `make payment-integration` passed.
+
+One doc defect was found and fixed: the domestic-instant example only printed a
+body. It now submits it and expects 202 (re-run: 202).
+
+Automated suites on the rebuilt stack: infra-verify, auth-smoke,
+corebanking-integration, corebanking-smoke, payment-integration and payment-smoke
+all PASS.

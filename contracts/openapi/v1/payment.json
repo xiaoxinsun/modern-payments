@@ -1,0 +1,515 @@
+{
+  "openapi": "3.1.1",
+  "info": {
+    "title": "GTB payment commands",
+    "version": "1.0.0",
+    "description": "B02 customer payment command boundary. `202` means the instruction, idempotency record, audit entry, PaymentReceived event and workflow-start dispatch intent committed together: durably received, never accepted or completed. Repeating the same Idempotency-Key for the same customer with the same payload replays the original receipt; a different payload returns 409. Receipt reads come from the authoritative command store and show pending dispatch even before projections exist."
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:8082"
+    }
+  ],
+  "security": [
+    {
+      "BearerAuth": []
+    }
+  ],
+  "paths": {
+    "/api/v1/payments": {
+      "post": {
+        "operationId": "submitPayment",
+        "summary": "Durably receive a customer payment instruction.",
+        "description": "Requires the `customer` role and `customerId` in the token's customer scope. The debtor account must belong to that customer (checked with Core Banking); unknown and foreign accounts are both denied with 403. A 503 is retryable only with the same Idempotency-Key and payload.",
+        "parameters": [
+          {
+            "$ref": "shared.json#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "shared.json#/components/parameters/CorrelationID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaymentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Receipt committed now or replayed from the original request.",
+            "headers": {
+              "X-Correlation-ID": {
+                "$ref": "shared.json#/components/headers/CorrelationID"
+              },
+              "Idempotent-Replayed": {
+                "description": "`true` when the original receipt was replayed.",
+                "schema": {
+                  "type": "boolean"
+                },
+                "required": true
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentReceipt"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "shared.json#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/payments/{paymentId}/receipt": {
+      "get": {
+        "operationId": "getPaymentReceipt",
+        "summary": "Read the authoritative command-store record of a payment.",
+        "description": "Customers see only their own customers' payments; ops_viewer, investigator, approver and auditor may read any receipt.",
+        "parameters": [
+          {
+            "name": "paymentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "../../common/v1/types.schema.json#/$defs/ID"
+            }
+          },
+          {
+            "$ref": "shared.json#/components/parameters/CorrelationID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current aggregate, immutable instruction and dispatch state.",
+            "headers": {
+              "X-Correlation-ID": {
+                "$ref": "shared.json#/components/headers/CorrelationID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentRecord"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "shared.json#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/commands/{commandId}": {
+      "get": {
+        "operationId": "getCommand",
+        "summary": "Read a durable command receipt.",
+        "parameters": [
+          {
+            "name": "commandId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "../../common/v1/types.schema.json#/$defs/ID"
+            }
+          },
+          {
+            "$ref": "shared.json#/components/parameters/CorrelationID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Command status from the command store.",
+            "headers": {
+              "X-Correlation-ID": {
+                "$ref": "shared.json#/components/headers/CorrelationID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommandReceipt"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "shared.json#/components/responses/Error"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "PositiveMoney": {
+        "allOf": [
+          {
+            "$ref": "../../common/v1/types.schema.json#/$defs/Money"
+          },
+          {
+            "properties": {
+              "amountMinor": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]{0,17}$"
+              },
+              "currency": {
+                "type": "string",
+                "enum": [
+                  "SGD",
+                  "USD"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "Product": {
+        "type": "string",
+        "enum": [
+          "BOOK_TRANSFER",
+          "DOMESTIC_INSTANT",
+          "RTGS",
+          "CROSS_BORDER"
+        ]
+      },
+      "LifecycleState": {
+        "type": "string",
+        "enum": [
+          "RECEIVED",
+          "VALIDATING",
+          "SCHEDULED",
+          "REQUIRES_REVIEW",
+          "ACCEPTED",
+          "EXECUTING",
+          "COMPLETED",
+          "REJECTED",
+          "CANCELLED",
+          "RETURNED"
+        ]
+      },
+      "ExecutionOutcome": {
+        "type": "string",
+        "enum": [
+          "NOT_SUBMITTED",
+          "PENDING",
+          "CONFIRMED_SUCCESS",
+          "CONFIRMED_FAILURE",
+          "UNKNOWN"
+        ]
+      },
+      "Creditor": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 140
+          },
+          "accountId": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/ID",
+            "description": "GTB account; required for BOOK_TRANSFER only."
+          },
+          "accountNumber": {
+            "type": "string",
+            "pattern": "^[0-9A-Za-z-]{1,34}$",
+            "description": "External account; required for other products."
+          },
+          "bankIdentifier": {
+            "type": "string",
+            "pattern": "^[A-Z0-9]{4,11}$",
+            "description": "Domestic bank code or BIC (BIC for CROSS_BORDER)."
+          },
+          "country": {
+            "type": "string",
+            "pattern": "^[A-Z]{2}$",
+            "description": "SG for DOMESTIC_INSTANT/RTGS; not SG for CROSS_BORDER."
+          }
+        },
+        "description": "BOOK_TRANSFER names a GTB accountId; other products name accountNumber, bankIdentifier and country. The payment domain enforces these product rules (ADR 0009)."
+      },
+      "PaymentRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "customerId",
+          "product",
+          "debtorAccountId",
+          "amount",
+          "creditor"
+        ],
+        "properties": {
+          "customerId": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/ID"
+          },
+          "product": {
+            "$ref": "#/components/schemas/Product"
+          },
+          "debtorAccountId": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/ID"
+          },
+          "amount": {
+            "$ref": "#/components/schemas/PositiveMoney"
+          },
+          "creditor": {
+            "$ref": "#/components/schemas/Creditor"
+          },
+          "reference": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 140
+          }
+        }
+      },
+      "Dispatch": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "workflowId",
+          "status",
+          "attempts",
+          "updatedAt"
+        ],
+        "properties": {
+          "workflowId": {
+            "type": "string",
+            "pattern": "^payment/[0-9a-f-]{36}$"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "STARTED"
+            ],
+            "description": "PENDING means no workflow has been started yet; it never implies acceptance."
+          },
+          "attempts": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "updatedAt": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/Timestamp"
+          }
+        }
+      },
+      "Claim": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "claimId",
+          "claimedAt"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "SUBMISSION",
+              "CANCELLATION"
+            ]
+          },
+          "claimId": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/ID"
+          },
+          "claimedAt": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/Timestamp"
+          }
+        }
+      },
+      "PaymentReceipt": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "paymentId",
+          "commandId",
+          "receiptVersion",
+          "lifecycleState",
+          "executionOutcome",
+          "dispatch",
+          "receivedAt"
+        ],
+        "properties": {
+          "paymentId": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/ID"
+          },
+          "commandId": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/ID"
+          },
+          "receiptVersion": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/PositiveSequence",
+            "description": "Committed aggregate version; 1 for a new receipt."
+          },
+          "lifecycleState": {
+            "$ref": "#/components/schemas/LifecycleState"
+          },
+          "executionOutcome": {
+            "$ref": "#/components/schemas/ExecutionOutcome"
+          },
+          "dispatch": {
+            "$ref": "#/components/schemas/Dispatch"
+          },
+          "receivedAt": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/Timestamp"
+          }
+        }
+      },
+      "PaymentRecord": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "paymentId",
+          "customerId",
+          "version",
+          "lifecycleState",
+          "executionOutcome",
+          "instruction",
+          "dispatch",
+          "receivedAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "paymentId": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/ID"
+          },
+          "customerId": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/ID"
+          },
+          "version": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/PositiveSequence"
+          },
+          "lifecycleState": {
+            "$ref": "#/components/schemas/LifecycleState"
+          },
+          "executionOutcome": {
+            "$ref": "#/components/schemas/ExecutionOutcome"
+          },
+          "instruction": {
+            "$ref": "#/components/schemas/PaymentRequest"
+          },
+          "dispatch": {
+            "$ref": "#/components/schemas/Dispatch"
+          },
+          "executionWorkflowId": {
+            "type": "string",
+            "pattern": "^execution/[0-9a-f-]{36}/[a-z-]+$"
+          },
+          "claim": {
+            "$ref": "#/components/schemas/Claim"
+          },
+          "receivedAt": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/Timestamp"
+          },
+          "updatedAt": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/Timestamp"
+          }
+        }
+      },
+      "CommandReceipt": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "commandId",
+          "commandType",
+          "paymentId",
+          "status",
+          "committedVersion",
+          "correlationId",
+          "recordedAt"
+        ],
+        "properties": {
+          "commandId": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/ID"
+          },
+          "commandType": {
+            "type": "string",
+            "enum": [
+              "SUBMIT_PAYMENT"
+            ]
+          },
+          "paymentId": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/ID"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "COMMITTED"
+            ]
+          },
+          "committedVersion": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/PositiveSequence"
+          },
+          "correlationId": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/ID"
+          },
+          "recordedAt": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/Timestamp"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "paymentId": "70000000-0000-4000-8000-000000000001",
+  "customerId": "20000000-0000-4000-8000-000000000001",
+  "product": "BOOK_TRANSFER",
+  "amount": { "amountMinor": "10000", "currency": "SGD" },
+  "lifecycleState": "RECEIVED",
+  "executionOutcome": "NOT_SUBMITTED"
+}

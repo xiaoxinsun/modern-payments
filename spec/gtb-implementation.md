@@ -4,12 +4,12 @@ This is the execution/resume entry point for the [GTB foundation](gtb-foundation
 
 ## Resume pointer
 
-- Active phase: none; B01 is complete.
-- Next phase: **B02 — Payment command model and durable receipts**.
-- Next action: read the B02 packet and required foundation sections, inspect the B01 handoff (Core Banking port semantics, ADR 0008), and start its first bounded scope item.
-- Last completed phase: **B01 — Core Banking accounts and posting engine**.
+- Active phase: none; B02 is complete.
+- Next phase: **B03 — Event delivery and CQRS query foundation**.
+- Next action: read the B03 packet and required foundation sections, inspect the B02 handoff (payment `domain_events`/`outbox`, `PaymentReceived` v1, ADR 0009), and start its first bounded scope item.
+- Last completed phase: **B02 — Payment command model and durable receipts**.
 - Blockers: none recorded.
-- Last updated: 2026-09-26 — B01 completed after reconciling an interrupted session, adding the Core Banking OpenAPI contract and passing unit/race/live database/API/infrastructure checks.
+- Last updated: 2026-09-26 — B02 completed: payment command API, atomic durable receipts with pending dispatch, claim primitives; unit/race/live database/API/OIDC/infrastructure checks and govulncheck passed.
 
 Update these fields whenever the active phase changes or work pauses. If a phase is already active, resume its checkpoint instead of starting the next row.
 
@@ -38,6 +38,7 @@ criteria and project-owned boundaries: [ADR 0007](adr/0007-maintained-libraries-
 | B01 | PostgreSQL and generated queries | Use `jackc/pgx/v5` and `sqlc`; keep transactions and accounting invariants in application/domain code. |
 | B01 onward | Telemetry | Use OpenTelemetry Go API/SDK and maintained `otelhttp`/driver/client instrumentation; keep metric names and redaction policy project-owned. |
 | B02 | OpenAPI server boundary | Use `oapi-codegen/v2` with its Go 1.22+ `net/http` server target and `kin-openapi/openapi3filter` request validation. |
+| B02 onward | Service-to-service OAuth2 | Use `golang.org/x/oauth2/clientcredentials` for client-credentials tokens ([ADR 0009](adr/0009-payment-command-model-and-receipts.md)); GTB owns audiences, roles and authorization. |
 | B03 | Kafka | Use `twmb/franz-go`; GTB owns outbox, inbox, deduplication, ordering-gap and replay semantics. |
 | B04 onward | Durable workflows | Use the official `go.temporal.io/sdk` and `testsuite`; workflow determinism and financial state machines remain GTB code. |
 | B07 onward | External adapter circuit state | Use `sony/gobreaker/v2` around eligible synchronous calls; never let it infer an unknown financial outcome or authorize a blind retry. |
@@ -55,7 +56,7 @@ Allowed statuses: `not started`, `in progress`, `blocked`, `completed`. Start wi
 | [I02](phases/i02.md) | Infrastructure | Local infrastructure and persistence | I01 | completed |
 | [I03](phases/i03.md) | Infrastructure | Authentication and service runtime | I02 | completed |
 | [B01](phases/b01.md) | Backend | Core Banking accounts and posting engine | I03 | completed |
-| [B02](phases/b02.md) | Backend | Payment command model and durable receipts | B01 | not started |
+| [B02](phases/b02.md) | Backend | Payment command model and durable receipts | B01 | completed |
 | [B03](phases/b03.md) | Backend | Event delivery and CQRS query foundation | B02 | not started |
 | [B04](phases/b04.md) | Backend | Operator commands and durable case framework | B03 | not started |
 | [B05](phases/b05.md) | Backend | Acceptance controls and transaction screening | B04 | not started |
@@ -86,7 +87,8 @@ This register is the single source of phase status. Do not copy statuses into th
 4. Implement a bounded unchecked scope item. Keep unrelated refactoring and future-phase features out of the session. Record changes to contracts that affect later phases.
 5. Run the checks relevant to the completed work. Record the exact command, pass/fail result and evidence location; distinguish unrun checks from passing checks.
 6. Save the packet checkpoint (its template lists the fields) after meaningful progress, before a large/risky operation, and before stopping. Include file paths, migration/contract versions, exact commands and results, the next concrete action, branch/commit and uncommitted files. Never record credentials, tokens or personal data; a commit is optional, durable files are not.
-7. When all scope and exit criteria pass, save evidence under `evidence/`, fill the completion handoff, mark the row `completed`, append a transition and advance the resume pointer. Otherwise retain `in progress`; if genuinely blocked, record the missing input, what was attempted and the exact unblock action, then mark `blocked`. Switch to another phase only if its prerequisites are complete and its scope is independent, and update the resume pointer.
+7. Before completion, write or update the phase walkthrough in `docs/walkthroughs/` (conventions in its README). It should show how to run the phase's services, call its APIs and inspect the data they change. Run every command in it against the local stack and record that in the evidence. If the phase adds nothing runnable, extend the walkthrough it builds on; if it adds setup steps, update the shared setup page.
+8. When all scope and exit criteria pass, save evidence under `evidence/`, fill the completion handoff, mark the row `completed`, append a transition and advance the resume pointer. Otherwise retain `in progress`; if genuinely blocked, record the missing input, what was attempted and the exact unblock action, then mark `blocked`. Switch to another phase only if its prerequisites are complete and its scope is independent, and update the resume pointer.
 
 The next session trusts neither stale prose nor status alone: it checks the current files and targeted validation evidence, and reconciles discrepancies before making new changes. If previously completed work regresses, reopen the responsible phase as `in progress`, record why, and prevent affected dependent work from claiming completion until corrected. Preserve the earlier completion history.
 
@@ -131,3 +133,5 @@ Append rows when starting, blocking, resuming, completing or reopening a phase. 
 | 2026-09-26 | I03 | in progress → completed | Replaced JWT/JWKS and UUID mechanics with pinned maintained libraries, documented dependency ownership across all stages, and reran full Go/race, vulnerability, live auth and infrastructure regression checks; see the library-review evidence. |
 | 2026-09-26 | B01 | not started → in progress | I03 completed at `1b5eb8b`; clean working tree and completion handoff inspected. Begin the Core Banking account, reservation, posting and journal/outbox authority. |
 | 2026-09-26 | B01 | in progress → completed | Reconciled interrupted session (migrations 0002–0003 already applied and frozen; checkpoint stale), added the Core Banking OpenAPI contract, contract/handler tests and ADR 0008. Full Go/race gate, live scenarios A–E, concurrency, lost-reply/409, API smoke and infrastructure/auth regression passed; see B01 completion evidence. |
+| 2026-09-26 | B02 | not started → in progress | B01 completed at `dd98381`; clean working tree and B01 handoff/ADR 0008 inspected. Begin the payment command model, durable receipt and customer-scoped API. |
+| 2026-09-26 | B02 | in progress → completed | Payment command model, payment migration 0002, `payment.json` contract with oapi-codegen/kin-openapi boundary, `payment-service` OIDC identity for Core Banking ownership checks, claim/owner primitives and ADR 0009 delivered. Full Go/race gate, live atomicity/idempotency/race/guard tests, end-to-end API smoke (restart, Core Banking outage), I02/I03/B01 regression and govulncheck (after upgrading x/text for GO-2026-5970) passed; see B02 completion evidence. |

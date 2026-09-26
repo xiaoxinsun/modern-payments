@@ -10,78 +10,78 @@ import (
 )
 
 type AppAccount struct {
-	AccountID          uuid.UUID          `json:"account_id"`
-	ExternalReference  string             `json:"external_reference"`
-	CustomerID         pgtype.UUID        `json:"customer_id"`
-	AccountKind        string             `json:"account_kind"`
-	Currency           string             `json:"currency"`
-	BookedBalanceMinor int64              `json:"booked_balance_minor"`
-	Status             string             `json:"status"`
-	CreatedAt          pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+	AccountID          uuid.UUID
+	ExternalReference  string
+	CustomerID         pgtype.UUID
+	AccountKind        string
+	Currency           string
+	BookedBalanceMinor int64
+	Status             string
+	CreatedAt          pgtype.Timestamptz
+	UpdatedAt          pgtype.Timestamptz
 }
 
 type AppHold struct {
-	HoldID                uuid.UUID          `json:"hold_id"`
-	AccountID             uuid.UUID          `json:"account_id"`
-	ReserveOperationID    uuid.UUID          `json:"reserve_operation_id"`
-	AmountMinor           int64              `json:"amount_minor"`
-	Currency              string             `json:"currency"`
-	Status                string             `json:"status"`
-	ExpiresAt             pgtype.Timestamptz `json:"expires_at"`
-	ConsumedByOperationID pgtype.UUID        `json:"consumed_by_operation_id"`
-	ReleasedByOperationID pgtype.UUID        `json:"released_by_operation_id"`
-	CreatedAt             pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
+	HoldID                uuid.UUID
+	AccountID             uuid.UUID
+	ReserveOperationID    uuid.UUID
+	AmountMinor           int64
+	Currency              string
+	Status                string
+	ExpiresAt             pgtype.Timestamptz
+	ConsumedByOperationID pgtype.UUID
+	ReleasedByOperationID pgtype.UUID
+	CreatedAt             pgtype.Timestamptz
+	UpdatedAt             pgtype.Timestamptz
 }
 
 type AppOperation struct {
-	OperationID   uuid.UUID          `json:"operation_id"`
-	OperationType string             `json:"operation_type"`
-	RequestHash   string             `json:"request_hash"`
-	ResourceType  string             `json:"resource_type"`
-	ResourceID    uuid.UUID          `json:"resource_id"`
-	CorrelationID uuid.UUID          `json:"correlation_id"`
-	CommittedAt   pgtype.Timestamptz `json:"committed_at"`
+	OperationID   uuid.UUID
+	OperationType string
+	RequestHash   string
+	ResourceType  string
+	ResourceID    uuid.UUID
+	CorrelationID uuid.UUID
+	CommittedAt   pgtype.Timestamptz
 }
 
 type AppPostingEntry struct {
-	PostingID   uuid.UUID `json:"posting_id"`
-	LineNumber  int16     `json:"line_number"`
-	AccountID   uuid.UUID `json:"account_id"`
-	Side        string    `json:"side"`
-	AmountMinor int64     `json:"amount_minor"`
-	Currency    string    `json:"currency"`
+	PostingID   uuid.UUID
+	LineNumber  int16
+	AccountID   uuid.UUID
+	Side        string
+	AmountMinor int64
+	Currency    string
 }
 
 type AppPostingEvent struct {
-	EventID          uuid.UUID          `json:"event_id"`
-	EventType        string             `json:"event_type"`
-	SchemaVersion    int32              `json:"schema_version"`
-	AggregateType    string             `json:"aggregate_type"`
-	AggregateID      uuid.UUID          `json:"aggregate_id"`
-	AggregateVersion int64              `json:"aggregate_version"`
-	EventSequence    int64              `json:"event_sequence"`
-	OccurredAt       pgtype.Timestamptz `json:"occurred_at"`
-	RecordedAt       pgtype.Timestamptz `json:"recorded_at"`
-	CorrelationID    uuid.UUID          `json:"correlation_id"`
-	CausationID      uuid.UUID          `json:"causation_id"`
-	Source           string             `json:"source"`
-	Payload          []byte             `json:"payload"`
+	EventID          uuid.UUID
+	EventType        string
+	SchemaVersion    int32
+	AggregateType    string
+	AggregateID      uuid.UUID
+	AggregateVersion int64
+	EventSequence    int64
+	OccurredAt       pgtype.Timestamptz
+	RecordedAt       pgtype.Timestamptz
+	CorrelationID    uuid.UUID
+	CausationID      uuid.UUID
+	Source           string
+	Payload          []byte
 }
 
 type AppPostingJournal struct {
-	PostingID           uuid.UUID          `json:"posting_id"`
-	OperationID         uuid.UUID          `json:"operation_id"`
-	Description         string             `json:"description"`
-	ReversalOfPostingID pgtype.UUID        `json:"reversal_of_posting_id"`
-	CommittedAt         pgtype.Timestamptz `json:"committed_at"`
+	PostingID           uuid.UUID
+	OperationID         uuid.UUID
+	Description         string
+	ReversalOfPostingID pgtype.UUID
+	CommittedAt         pgtype.Timestamptz
 }
 
 type AppPostingOutbox struct {
-	EventID          uuid.UUID          `json:"event_id"`
-	OccurredAt       pgtype.Timestamptz `json:"occurred_at"`
-	PublishedAt      pgtype.Timestamptz `json:"published_at"`
-	DeliveryAttempts int32              `json:"delivery_attempts"`
-	LastError        *string            `json:"last_error"`
+	EventID          uuid.UUID
+	OccurredAt       pgtype.Timestamptz
+	PublishedAt      pgtype.Timestamptz
+	DeliveryAttempts int32
+	LastError        *string
 }

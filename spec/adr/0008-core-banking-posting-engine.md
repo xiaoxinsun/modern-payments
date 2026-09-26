@@ -68,3 +68,13 @@ or `database/*`, rather than rejecting those packages anywhere in the transitive
 graph. That's because maintained value libraries (for example `gofrs/uuid`) implement
 `database/sql` interfaces themselves. Temporal and outer GTB packages remain
 forbidden transitively.
+
+## Amendment (2026-09-27): no JSON tags on generated rows
+
+`sqlc.yaml` no longer sets `emit_json_tags`, for both the `corebanking` and the
+`payment` entries. The generated row structs (`coredb`, `paymentdb`) are
+persistence types only. sqlc maps columns by position in `Scan`, so the tags were
+never read, and no service encodes a row directly. HTTP and event payloads map
+rows to domain or contract types first, which keeps wire formats independent of
+column names. Regenerated with `make sqlc-generate`; generated code has no
+behavioural change.

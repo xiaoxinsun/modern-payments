@@ -9,7 +9,7 @@ Resume GTB implementation from `spec/gtb-implementation.md`.
 2. Run `git status` and confirm the working tree matches what the checkpoint says. Trust the checkpoint; do not audit already-recorded work. If you see an obvious mismatch (uncommitted files the checkpoint doesn't mention, or a checkpoint claiming work that isn't in the tree), stop and recommend `/gtb-resume-reconcile` instead of guessing.
 3. Consult only the foundation sections the packet names.
 4. Implement the next bounded item, run the relevant checks, and update the packet checkpoint. Repeat until every scope item and exit criterion in the packet is done.
-5. Finish per the working protocol: evidence, completion handoff, status register, transition log, resume pointer.
+5. Finish per the working protocol: phase walkthrough (commands run), evidence, completion handoff, status register, transition log, resume pointer.
 
 You are expected to complete the entire phase (the whole packet file). Do not stop midway.
 

@@ -55,6 +55,11 @@ func HTTPHandler(serviceName string, next http.Handler) http.Handler {
 	)
 }
 
+// HTTPTransport instruments outbound service calls without recording headers.
+func HTTPTransport(base http.RoundTripper) http.RoundTripper {
+	return otelhttp.NewTransport(base)
+}
+
 func ConfigurePGX(config *pgxpool.Config) {
 	config.ConnConfig.Tracer = otelpgx.NewTracer(
 		otelpgx.WithDisableSQLStatementInAttributes(),

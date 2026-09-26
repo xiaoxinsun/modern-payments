@@ -28,11 +28,12 @@ and OpenAPI validation, event/error envelopes, and transitive domain dependencie
 The versioned fixtures and vendored OpenAPI meta-schema make contract validation
 offline after `make deps`. Integration tests arrive with infrastructure/features.
 
-`payment-api` is the I03 runtime reference composition root. It serves public
-`/health/live` and OIDC-backed `/health/ready` endpoints plus protected customer,
-operations and integration demonstration routes; no payment business endpoint is
-implemented yet. `core-banking-service` (B01) serves the authenticated Core Banking
-port; see ADR 0008. The other seven executables remain feature-phase placeholders.
+`payment-api` serves the B02 payment command API (durable receipts, command and
+receipt reads; ADR 0009) beside the I03 runtime demonstration routes.
+`core-banking-service` (B01) serves the authenticated Core Banking port; see
+ADR 0008. Generated code is checked in: `make sqlc-generate` for queries and
+`make openapi-generate` for the payment HTTP boundary (a test fails when the
+embedded contract bundle is stale). The other seven executables remain feature-phase placeholders.
 See the local runbook for `make auth-smoke` and runtime environment variables.
 For administrator/owner connection details, database and schema inventory, and
 interactive `docker exec` behavior, see the [database guide](migrations/README.md).
@@ -45,6 +46,8 @@ interactive `docker exec` behavior, see the [database guide](migrations/README.m
 - `internal/payment/application` coordinates domain operations and owns the
   narrow interfaces its callers and infrastructure implementations need.
 - `internal/payment/storage` implements payment persistence.
+- `internal/payment/api` is the generated/validated HTTP boundary; it maps wire
+  types to domain types and never decides authorization or product rules.
 - `internal/workflows` coordinates durable orchestration through application
   operations; `internal/adapters` implements external ports.
 - `internal/corebanking`, `internal/compliance`, and `internal/amlmonitoring`

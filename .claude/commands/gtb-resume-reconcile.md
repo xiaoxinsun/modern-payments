@@ -24,7 +24,7 @@ If the tree is ambiguous (for example, half-written work whose intent you can't 
 
 1. Consult only the foundation sections the packet names.
 2. Implement the next bounded item, run the relevant checks, and update the packet checkpoint. Repeat until every scope item and exit criterion in the packet is done.
-3. Finish per the working protocol: evidence, completion handoff, status register, transition log, resume pointer.
+3. Finish per the working protocol: phase walkthrough (commands run), evidence, completion handoff, status register, transition log, resume pointer.
 
 You are expected to complete the entire phase (the whole packet file). Do not stop midway.
 

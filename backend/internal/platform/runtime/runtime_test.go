@@ -112,3 +112,19 @@ func anyToAttrs(values []any) []slog.Attr {
 	}
 	return attributes
 }
+
+func TestLoadServiceClient(t *testing.T) {
+	config := Config{Profile: ProfileLocal, OIDCIssuer: "http://localhost:8080/realms/gtb"}
+	if _, err := LoadServiceClient(config, "payment-service"); err == nil {
+		t.Fatal("expected a missing client secret to be rejected")
+	}
+	t.Setenv("GTB_SERVICE_CLIENT_SECRET", "local-secret")
+	client, err := LoadServiceClient(config, "payment-service")
+	if err != nil || client.ClientID != "payment-service" || client.TokenURL != "http://localhost:8080/realms/gtb/protocol/openid-connect/token" {
+		t.Fatalf("got %+v %v", client, err)
+	}
+	t.Setenv("GTB_SERVICE_TOKEN_URL", "https://user:secret@issuer.example/token")
+	if _, err := LoadServiceClient(config, "payment-service"); err == nil {
+		t.Fatal("expected token URL credentials to be rejected")
+	}
+}

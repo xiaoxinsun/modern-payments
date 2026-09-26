@@ -2,9 +2,10 @@ GO ?= go
 GOFMT ?= $(shell $(GO) env GOROOT)/bin/gofmt
 export GOTOOLCHAIN := local
 
-.PHONY: check toolchain deps fmt fmt-check vet test race build mod-check sqlc-generate
+.PHONY: check toolchain deps fmt fmt-check vet test race build mod-check sqlc-generate openapi-generate
 
 SQLC_VERSION := v1.31.1
+OAPI_CODEGEN_VERSION := v2.8.0
 
 check: toolchain fmt-check mod-check vet test race build
 
@@ -41,8 +42,13 @@ build:
 sqlc-generate:
 	cd backend && $(GO) run github.com/sqlc-dev/sqlc/cmd/sqlc@$(SQLC_VERSION) generate -f sqlc.yaml
 
+# Bundle cross-file contract references, then generate the net/http boundary.
+openapi-generate:
+	cd backend && $(GO) run ./internal/tools/openapibundle ../contracts/openapi/v1/payment.json internal/payment/api/payment.bundle.json
+	cd backend/internal/payment/api && $(GO) run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@$(OAPI_CODEGEN_VERSION) -config oapi-codegen.yaml payment.bundle.json
+
 COMPOSE := docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml
-.PHONY: infra-init infra-config infra-up infra-status infra-down db-provision db-migrate db-seed infra-verify infra-restart-check auth-smoke corebanking-integration corebanking-smoke infra-reset
+.PHONY: infra-init infra-config infra-up infra-status infra-down oidc-sync db-provision db-migrate db-seed infra-verify infra-restart-check auth-smoke corebanking-integration corebanking-smoke payment-integration payment-smoke infra-reset
 
 infra-init:
 	python3 infra/compose/init-env.py
@@ -58,6 +64,9 @@ infra-status:
 
 infra-down:
 	$(COMPOSE) down
+
+oidc-sync:
+	python3 infra/compose/oidc_sync.py
 
 db-provision:
 	python3 infra/compose/database.py provision
@@ -82,6 +91,12 @@ corebanking-integration:
 
 corebanking-smoke: build
 	python3 infra/compose/tests/corebanking_smoke.py
+
+payment-integration:
+	python3 infra/compose/tests/payment_integration.py
+
+payment-smoke: build
+	python3 infra/compose/tests/payment_smoke.py
 
 infra-reset:
 	@test "$(CONFIRM)" = "delete-gtb-data" || { echo 'Destructive reset requires CONFIRM=delete-gtb-data'; exit 1; }

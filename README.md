@@ -44,6 +44,8 @@ I02 Compose stack: `make infra-init infra-up`, then
 `make db-provision db-migrate db-seed`. Run `make infra-verify` for live checks.
 Run `make auth-smoke` after the stack is healthy to validate the I03 OIDC realm,
 protected sample API, readiness, redacted logging and graceful shutdown.
+To explore what each phase built, running the services, calling the APIs and
+inspecting the database, follow the [walkthroughs](docs/walkthroughs/README.md).
 
 ## Suggested Git workflow
 

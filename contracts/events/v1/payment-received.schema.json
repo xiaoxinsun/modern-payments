@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gtb.local/contracts/events/v1/payment-received.schema.json",
+  "description": "PaymentReceived v1 payload: the instruction was durably received. It is not acceptance, and it carries no account or beneficiary details.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["paymentId", "customerId", "product", "amount", "lifecycleState", "executionOutcome"],
+  "properties": {
+    "paymentId": { "$ref": "../../common/v1/types.schema.json#/$defs/ID" },
+    "customerId": { "$ref": "../../common/v1/types.schema.json#/$defs/ID" },
+    "product": { "enum": ["BOOK_TRANSFER", "DOMESTIC_INSTANT", "RTGS", "CROSS_BORDER"] },
+    "amount": { "$ref": "../../common/v1/types.schema.json#/$defs/Money" },
+    "lifecycleState": { "const": "RECEIVED" },
+    "executionOutcome": { "const": "NOT_SUBMITTED" }
+  }
+}

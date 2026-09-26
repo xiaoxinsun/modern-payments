@@ -57,7 +57,7 @@ per session, even though this bootstrap superuser can inspect all of them.
 | Database | Owner/login | Contents |
 | --- | --- | --- |
 | `postgres` | `gtb_admin` | Bootstrap administration. |
-| `payment` | `payment` | Payment command domain. |
+| `payment` | `payment` | Payment command domain (B02 `0002`: payments, instructions, version history, idempotency, commands, audit, events/outbox, workflow dispatch; ADR 0009). |
 | `corebanking` | `corebanking` | Accounts and posting authority. |
 | `projections` | `projections` | Query/read models. |
 | `simulators` | `simulators` | External-system simulator records. |

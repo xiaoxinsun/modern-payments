@@ -110,6 +110,29 @@ func validateIdentityURL(name, raw, profile string) error {
 	return nil
 }
 
+// ServiceClient is an OAuth client-credentials identity used for calls to other
+// GTB services. The secret is never logged.
+type ServiceClient struct {
+	TokenURL     string
+	ClientID     string
+	ClientSecret string
+}
+
+func LoadServiceClient(config Config, defaultClientID string) (ServiceClient, error) {
+	client := ServiceClient{
+		TokenURL:     envOrDefault("GTB_SERVICE_TOKEN_URL", strings.TrimRight(config.OIDCIssuer, "/")+"/protocol/openid-connect/token"),
+		ClientID:     envOrDefault("GTB_SERVICE_CLIENT_ID", defaultClientID),
+		ClientSecret: os.Getenv("GTB_SERVICE_CLIENT_SECRET"),
+	}
+	if client.ClientID == "" || client.ClientSecret == "" {
+		return ServiceClient{}, errors.New("GTB_SERVICE_CLIENT_ID and GTB_SERVICE_CLIENT_SECRET are required")
+	}
+	if err := validateIdentityURL("service token URL", client.TokenURL, config.Profile); err != nil {
+		return ServiceClient{}, err
+	}
+	return client, nil
+}
+
 // LogValues deliberately omits every credential and connection string.
 func (c Config) LogValues() []any {
 	return []any{

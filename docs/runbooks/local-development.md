@@ -2,8 +2,11 @@
 
 Run commands from the repository root. Install Docker with Compose v2.20 or
 newer and Python 3; start the Docker daemon first. This stack runs infrastructure
-dependencies; application services are started separately. `payment-api` contains
-the I03 authenticated runtime, while business services remain feature scaffolds.
+dependencies; application services are started separately. `payment-api` durably
+receives customer payment instructions (B02) and `core-banking-service` serves the
+Core Banking port (B01); other business services remain feature scaffolds.
+For hands-on tours of the running services, see the
+[walkthroughs](../walkthroughs/README.md).
 
 ## Start and inspect
 
@@ -149,7 +152,8 @@ Run the authenticated sample runtime and its checks with:
 make auth-smoke
 ```
 
-The check starts `payment-api` on loopback port 18082, verifies public liveness and
+Since B02, `payment-api` also needs `GTB_DATABASE_URL` and its service identity
+(below); the smoke supplies both from `.env`. The check starts `payment-api` on loopback port 18082, verifies public liveness and
 OIDC-backed readiness, then exercises valid, invalid and expired tokens; customer
 scope; operator/compliance/auditor roles; integration service roles; correlation
 IDs; disabled development controls; structured credential-safe logs; and SIGTERM
@@ -180,5 +184,37 @@ realm imported before B01 lacks it; fresh realms get it from the fixture. Run
 `core-banking-service` with `GTB_DATABASE_URL`, `GTB_AUTH_AUDIENCE=core-banking-service`
 and the usual `GTB_AUTH_*` settings (default address `127.0.0.1:8084`). The port
 contract is `contracts/openapi/v1/core-banking.json`; see ADR 0008.
+
+## Payment commands (B02)
+
+`make db-migrate` applies payment migration 0002 (payments, immutable
+instructions, version history, idempotency records, commands, audit, domain
+events/outbox and workflow dispatch). B02 adds a confidential `payment-service`
+OIDC client (role `internal_service`, audience `core-banking-service`) and gives
+`customer.demo` Maya's Core Banking customer ID
+`20000000-0000-4000-8000-000000000001` alongside `cust-demo-001`. A realm imported
+before B02 lacks both; reconcile it without resetting data:
+
+```sh
+make infra-init                # adds PAYMENT_SERVICE_OIDC_SECRET to .env if missing
+make infra-up                  # recreates Keycloak with the new secret variable
+make oidc-sync                 # idempotent: creates payment-service, declares customer_ids, adds scope
+make payment-integration       # PostgreSQL: atomic receipt, replay/409, injected failures, races, guards
+make payment-smoke             # payment-api 18082 + core-banking-service 18084 end to end
+```
+
+`oidc-sync` declares `customer_ids` as an admin-only managed user-profile
+attribute because Keycloak 26 hides unmanaged attributes from the admin API.
+The smoke checks role/scope denial, 202 receipts with pending dispatch, replay
+and 409, receipt/command reads, a payment-api restart and a Core Banking outage
+(new instructions get a retryable 503; replays still succeed).
+
+Run `payment-api` with `GTB_DATABASE_URL`, `GTB_AUTH_AUDIENCE=payment-api`, the
+usual `GTB_AUTH_*` settings, `GTB_SERVICE_CLIENT_SECRET` (the
+`PAYMENT_SERVICE_OIDC_SECRET` value) and optionally `GTB_SERVICE_CLIENT_ID`
+(default `payment-service`), `GTB_SERVICE_TOKEN_URL` (default: issuer token
+endpoint) and `GTB_COREBANKING_URL` (default `http://127.0.0.1:8084`). The
+contract is `contracts/openapi/v1/payment.json`; after changing it run
+`make openapi-generate`. See ADR 0009.
 
 Other feature tables and business seeds remain feature-phase work.

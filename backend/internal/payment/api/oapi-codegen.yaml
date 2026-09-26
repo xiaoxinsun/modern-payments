@@ -1,0 +1,8 @@
+# Generated boundary only: domain validation and authorization stay in GTB code.
+package: api
+output: api.gen.go
+generate:
+  std-http-server: true
+  models: true
+output-options:
+  skip-prune: true

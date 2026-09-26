@@ -21,7 +21,7 @@ with os.fdopen(descriptor, "r+") as output:
                 "GTB_AUDITOR_PASSWORD", "GTB_PLATFORM_ADMIN_PASSWORD",
                 "RAIL_SIMULATOR_OIDC_SECRET", "SCREENING_SIMULATOR_OIDC_SECRET",
                 "CORE_BANKING_OIDC_SECRET", "EVENT_PROJECTOR_OIDC_SECRET",
-                "EXPIRED_TOKEN_TEST_OIDC_SECRET")
+                "EXPIRED_TOKEN_TEST_OIDC_SECRET", "PAYMENT_SERVICE_OIDC_SECRET")
     missing = [name for name in required if name not in names]
     if missing:
         if not existing:

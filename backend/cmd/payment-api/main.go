@@ -1,5 +1,5 @@
-// Command payment-api exposes the shared I03 runtime and authentication
-// primitives. Payment business endpoints arrive in later backend phases.
+// Command payment-api durably receives customer payment instructions and serves
+// command-store receipts. It keeps the I03 runtime demonstration routes.
 package main
 
 import (
@@ -11,8 +11,16 @@ import (
 	"syscall"
 	"time"
 
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/clientcredentials"
+
+	"gtb.local/backend/internal/adapters/corebanking"
+	"gtb.local/backend/internal/payment/api"
+	"gtb.local/backend/internal/payment/application"
+	"gtb.local/backend/internal/payment/storage"
 	"gtb.local/backend/internal/platform/auth"
 	platformruntime "gtb.local/backend/internal/platform/runtime"
+	platformtelemetry "gtb.local/backend/internal/platform/telemetry"
 )
 
 func main() {
@@ -22,9 +30,53 @@ func main() {
 		logger.Error("invalid configuration", "error", err)
 		os.Exit(1)
 	}
-	logger.Info("configuration loaded", config.LogValues()...)
+	serviceClient, err := platformruntime.LoadServiceClient(config, "payment-service")
+	if err != nil {
+		logger.Error("invalid service client configuration", "error", err)
+		os.Exit(1)
+	}
+	coreBankingURL := os.Getenv("GTB_COREBANKING_URL")
+	if coreBankingURL == "" {
+		coreBankingURL = "http://127.0.0.1:8084"
+	}
+	logger.Info("configuration loaded", append(config.LogValues(), "service_client_id", serviceClient.ClientID, "core_banking_url", coreBankingURL)...)
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+
+	telemetryProviders, err := platformtelemetry.Setup(config.ServiceName)
+	if err != nil {
+		logger.Error("telemetry setup failed", "error", err)
+		os.Exit(1)
+	}
+	defer func() {
+		shutdownContext, cancel := context.WithTimeout(context.Background(), config.ShutdownTimeout)
+		defer cancel()
+		if err := telemetryProviders.Shutdown(shutdownContext); err != nil {
+			logger.Error("telemetry shutdown failed", "error", err)
+		}
+	}()
+
+	pool, err := storage.Open(ctx, config.DatabaseURL)
+	if err != nil {
+		logger.Error("database setup failed", "error", err)
+		os.Exit(1)
+	}
+	defer pool.Close()
+	store := storage.NewStore(pool)
+
+	// Tokens are fetched and cached per client-credentials grant; the base
+	// transport instruments both token and Core Banking calls.
+	outbound := &http.Client{Timeout: 5 * time.Second, Transport: platformtelemetry.HTTPTransport(http.DefaultTransport)}
+	credentials := clientcredentials.Config{
+		ClientID: serviceClient.ClientID, ClientSecret: serviceClient.ClientSecret, TokenURL: serviceClient.TokenURL,
+	}
+	coreBankingHTTP := credentials.Client(context.WithValue(ctx, oauth2.HTTPClient, outbound))
+	coreBankingHTTP.Timeout = 5 * time.Second
+	accounts, err := corebanking.NewClient(coreBankingURL, coreBankingHTTP)
+	if err != nil {
+		logger.Error("Core Banking client configuration failed", "error", err)
+		os.Exit(1)
+	}
 
 	verifier, err := auth.NewJWTVerifier(auth.Config{
 		Issuer: config.OIDCIssuer, Audience: config.OIDCAudience, JWKSURL: config.OIDCJWKSURL, Context: ctx,
@@ -35,11 +87,15 @@ func main() {
 	}
 
 	health := platformruntime.NewHealth(map[string]platformruntime.ReadinessCheck{
-		"oidc_signing_keys": verifier.Ready,
+		"database": store.Ready, "oidc_signing_keys": verifier.Ready,
 	})
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health/live", health.Liveness)
 	mux.HandleFunc("GET /health/ready", health.Readiness)
+	if err := api.Register(mux, verifier, application.NewService(store, accounts)); err != nil {
+		logger.Error("payment API contract setup failed", "error", err)
+		os.Exit(1)
+	}
 
 	jsonOK := http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		principal, _ := auth.PrincipalFromContext(request.Context())
@@ -72,7 +128,8 @@ func main() {
 		)
 	}
 
-	handler := platformruntime.WithCorrelation(platformruntime.AccessLog(logger, platformruntime.Recover(logger, mux)))
+	handler := platformruntime.WithCorrelation(platformruntime.AccessLog(logger,
+		platformruntime.Recover(logger, platformtelemetry.HTTPHandler(config.ServiceName, mux))))
 	server := &http.Server{
 		Addr:              config.HTTPAddress,
 		Handler:           handler,

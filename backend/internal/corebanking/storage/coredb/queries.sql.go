@@ -21,8 +21,8 @@ RETURNING hold_id, account_id, reserve_operation_id, amount_minor, currency, sta
 `
 
 type ConsumeHoldParams struct {
-	HoldID                uuid.UUID   `json:"hold_id"`
-	ConsumedByOperationID pgtype.UUID `json:"consumed_by_operation_id"`
+	HoldID                uuid.UUID
+	ConsumedByOperationID pgtype.UUID
 }
 
 func (q *Queries) ConsumeHold(ctx context.Context, arg ConsumeHoldParams) (AppHold, error) {
@@ -173,12 +173,12 @@ RETURNING hold_id, account_id, reserve_operation_id, amount_minor, currency, sta
 `
 
 type InsertHoldParams struct {
-	HoldID             uuid.UUID          `json:"hold_id"`
-	AccountID          uuid.UUID          `json:"account_id"`
-	ReserveOperationID uuid.UUID          `json:"reserve_operation_id"`
-	AmountMinor        int64              `json:"amount_minor"`
-	Currency           string             `json:"currency"`
-	ExpiresAt          pgtype.Timestamptz `json:"expires_at"`
+	HoldID             uuid.UUID
+	AccountID          uuid.UUID
+	ReserveOperationID uuid.UUID
+	AmountMinor        int64
+	Currency           string
+	ExpiresAt          pgtype.Timestamptz
 }
 
 func (q *Queries) InsertHold(ctx context.Context, arg InsertHoldParams) (AppHold, error) {
@@ -216,12 +216,12 @@ RETURNING operation_id, operation_type, request_hash, resource_type, resource_id
 `
 
 type InsertOperationParams struct {
-	OperationID   uuid.UUID `json:"operation_id"`
-	OperationType string    `json:"operation_type"`
-	RequestHash   string    `json:"request_hash"`
-	ResourceType  string    `json:"resource_type"`
-	ResourceID    uuid.UUID `json:"resource_id"`
-	CorrelationID uuid.UUID `json:"correlation_id"`
+	OperationID   uuid.UUID
+	OperationType string
+	RequestHash   string
+	ResourceType  string
+	ResourceID    uuid.UUID
+	CorrelationID uuid.UUID
 }
 
 func (q *Queries) InsertOperation(ctx context.Context, arg InsertOperationParams) (AppOperation, error) {
@@ -254,10 +254,10 @@ RETURNING posting_id, operation_id, description, reversal_of_posting_id, committ
 `
 
 type InsertPostingParams struct {
-	PostingID           uuid.UUID   `json:"posting_id"`
-	OperationID         uuid.UUID   `json:"operation_id"`
-	Description         string      `json:"description"`
-	ReversalOfPostingID pgtype.UUID `json:"reversal_of_posting_id"`
+	PostingID           uuid.UUID
+	OperationID         uuid.UUID
+	Description         string
+	ReversalOfPostingID pgtype.UUID
 }
 
 func (q *Queries) InsertPosting(ctx context.Context, arg InsertPostingParams) (AppPostingJournal, error) {
@@ -285,12 +285,12 @@ INSERT INTO app.posting_entries (
 `
 
 type InsertPostingEntryParams struct {
-	PostingID   uuid.UUID `json:"posting_id"`
-	LineNumber  int16     `json:"line_number"`
-	AccountID   uuid.UUID `json:"account_id"`
-	Side        string    `json:"side"`
-	AmountMinor int64     `json:"amount_minor"`
-	Currency    string    `json:"currency"`
+	PostingID   uuid.UUID
+	LineNumber  int16
+	AccountID   uuid.UUID
+	Side        string
+	AmountMinor int64
+	Currency    string
 }
 
 func (q *Queries) InsertPostingEntry(ctx context.Context, arg InsertPostingEntryParams) error {
@@ -318,12 +318,12 @@ RETURNING event_id, event_type, schema_version, aggregate_type, aggregate_id,
 `
 
 type InsertPostingEventParams struct {
-	EventID       uuid.UUID          `json:"event_id"`
-	AggregateID   uuid.UUID          `json:"aggregate_id"`
-	OccurredAt    pgtype.Timestamptz `json:"occurred_at"`
-	CorrelationID uuid.UUID          `json:"correlation_id"`
-	CausationID   uuid.UUID          `json:"causation_id"`
-	Payload       []byte             `json:"payload"`
+	EventID       uuid.UUID
+	AggregateID   uuid.UUID
+	OccurredAt    pgtype.Timestamptz
+	CorrelationID uuid.UUID
+	CausationID   uuid.UUID
+	Payload       []byte
 }
 
 func (q *Queries) InsertPostingEvent(ctx context.Context, arg InsertPostingEventParams) (AppPostingEvent, error) {
@@ -359,8 +359,8 @@ INSERT INTO app.posting_outbox (event_id, occurred_at) VALUES ($1, $2)
 `
 
 type InsertPostingOutboxParams struct {
-	EventID    uuid.UUID          `json:"event_id"`
-	OccurredAt pgtype.Timestamptz `json:"occurred_at"`
+	EventID    uuid.UUID
+	OccurredAt pgtype.Timestamptz
 }
 
 func (q *Queries) InsertPostingOutbox(ctx context.Context, arg InsertPostingOutboxParams) error {
@@ -415,22 +415,22 @@ LIMIT $4
 `
 
 type ListStatementParams struct {
-	AccountID uuid.UUID          `json:"account_id"`
-	Column2   pgtype.Timestamptz `json:"column_2"`
-	Column3   pgtype.Timestamptz `json:"column_3"`
-	Limit     int32              `json:"limit"`
+	AccountID uuid.UUID
+	Column2   pgtype.Timestamptz
+	Column3   pgtype.Timestamptz
+	Limit     int32
 }
 
 type ListStatementRow struct {
-	PostingID           uuid.UUID          `json:"posting_id"`
-	LineNumber          int16              `json:"line_number"`
-	OperationID         uuid.UUID          `json:"operation_id"`
-	Description         string             `json:"description"`
-	ReversalOfPostingID pgtype.UUID        `json:"reversal_of_posting_id"`
-	CommittedAt         pgtype.Timestamptz `json:"committed_at"`
-	Side                string             `json:"side"`
-	AmountMinor         int64              `json:"amount_minor"`
-	Currency            string             `json:"currency"`
+	PostingID           uuid.UUID
+	LineNumber          int16
+	OperationID         uuid.UUID
+	Description         string
+	ReversalOfPostingID pgtype.UUID
+	CommittedAt         pgtype.Timestamptz
+	Side                string
+	AmountMinor         int64
+	Currency            string
 }
 
 func (q *Queries) ListStatement(ctx context.Context, arg ListStatementParams) ([]ListStatementRow, error) {
@@ -538,8 +538,8 @@ RETURNING hold_id, account_id, reserve_operation_id, amount_minor, currency, sta
 `
 
 type ReleaseHoldParams struct {
-	HoldID                uuid.UUID   `json:"hold_id"`
-	ReleasedByOperationID pgtype.UUID `json:"released_by_operation_id"`
+	HoldID                uuid.UUID
+	ReleasedByOperationID pgtype.UUID
 }
 
 func (q *Queries) ReleaseHold(ctx context.Context, arg ReleaseHoldParams) (AppHold, error) {
@@ -583,8 +583,8 @@ RETURNING account_id, external_reference, customer_id, account_kind, currency,
 `
 
 type UpdateAccountBalanceParams struct {
-	AccountID          uuid.UUID `json:"account_id"`
-	BookedBalanceMinor int64     `json:"booked_balance_minor"`
+	AccountID          uuid.UUID
+	BookedBalanceMinor int64
 }
 
 func (q *Queries) UpdateAccountBalance(ctx context.Context, arg UpdateAccountBalanceParams) (AppAccount, error) {

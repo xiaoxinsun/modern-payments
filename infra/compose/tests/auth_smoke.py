@@ -94,7 +94,8 @@ def main():
         "GTB_COMPLIANCE_APPROVER_PASSWORD", "GTB_AUDITOR_PASSWORD",
         "GTB_PLATFORM_ADMIN_PASSWORD",
         "RAIL_SIMULATOR_OIDC_SECRET", "CORE_BANKING_OIDC_SECRET",
-        "EXPIRED_TOKEN_TEST_OIDC_SECRET",
+        "EXPIRED_TOKEN_TEST_OIDC_SECRET", "PAYMENT_DB_PASSWORD",
+        "PAYMENT_SERVICE_OIDC_SECRET",
     ]
     missing = [name for name in required if not credentials.get(name)]
     if missing:
@@ -109,6 +110,10 @@ def main():
         "GTB_AUTH_ISSUER": "http://localhost:8080/realms/gtb",
         "GTB_AUTH_JWKS_URL": "http://127.0.0.1:8080/realms/gtb/protocol/openid-connect/certs",
         "GTB_AUTH_AUDIENCE": "payment-api",
+        # B02: payment-api needs its database and service identity to start.
+        "GTB_DATABASE_URL": "postgresql://payment:" + parse.quote(credentials["PAYMENT_DB_PASSWORD"], safe="") + "@127.0.0.1:5432/payment?sslmode=disable",
+        "GTB_SERVICE_CLIENT_SECRET": credentials["PAYMENT_SERVICE_OIDC_SECRET"],
+        "GTB_SERVICE_TOKEN_URL": OIDC_TOKEN_URL,
     })
     log_file = tempfile.NamedTemporaryFile(prefix="gtb-i03-payment-api-", suffix=".jsonl", delete=False)
     log_path = Path(log_file.name)

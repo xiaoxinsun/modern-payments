@@ -32,7 +32,7 @@ func compiler(t *testing.T) *jsonschema.Compiler {
 	t.Helper()
 	c := jsonschema.NewCompiler()
 	c.AssertFormat()
-	for _, path := range []string{"common/v1/types.schema.json", "events/v1/envelope.schema.json", "events/v1/core-banking-posting-committed.schema.json", "simulators/v1/message.schema.json"} {
+	for _, path := range []string{"common/v1/types.schema.json", "events/v1/envelope.schema.json", "events/v1/core-banking-posting-committed.schema.json", "events/v1/payment-received.schema.json", "simulators/v1/message.schema.json"} {
 		if err := c.AddResource(schemaRoot+path, readJSON(t, "../../../contracts/"+path)); err != nil {
 			t.Fatal(err)
 		}
@@ -56,6 +56,7 @@ func TestSchemasAndExamples(t *testing.T) {
 		{"error.json", "common/v1/types.schema.json#/$defs/ErrorEnvelope"},
 		{"event.json", "events/v1/envelope.schema.json"},
 		{"core-banking-posting-committed.json", "events/v1/core-banking-posting-committed.schema.json"},
+		{"payment-received.json", "events/v1/payment-received.schema.json"},
 		{"simulator-message.json", "simulators/v1/message.schema.json"},
 	} {
 		t.Run(tc.file, func(t *testing.T) {
@@ -205,7 +206,7 @@ func TestOpenAPIAndReferences(t *testing.T) {
 	}
 	metaSchema := compile(t, c, metaID)
 	// Register every document first so cross-document component refs resolve.
-	documents := []string{"shared.json", "core-banking.json"}
+	documents := []string{"shared.json", "core-banking.json", "payment.json"}
 	apis := make(map[string]any, len(documents))
 	for _, name := range documents {
 		api := readJSON(t, "../../../contracts/openapi/v1/"+name)

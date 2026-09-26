@@ -93,6 +93,20 @@
       ]
     },
     {
+      "clientId": "payment-service",
+      "name": "Payment service identity for internal calls",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "${PAYMENT_SERVICE_OIDC_SECRET}",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "protocolMappers": [
+        {"name": "core-banking-service-audience", "protocol": "openid-connect", "protocolMapper": "oidc-audience-mapper", "config": {"included.client.audience": "core-banking-service", "access.token.claim": "true"}}
+      ]
+    },
+    {
       "clientId": "event-projector",
       "enabled": true,
       "publicClient": false,
@@ -130,7 +144,7 @@
       "emailVerified": true,
       "credentials": [{"type": "password", "value": "${GTB_CUSTOMER_PASSWORD}", "temporary": false}],
       "realmRoles": ["customer"],
-      "attributes": {"customer_ids": ["cust-demo-001"]}
+      "attributes": {"customer_ids": ["cust-demo-001", "20000000-0000-4000-8000-000000000001"]}
     },
     {
       "username": "operations.demo",
@@ -195,6 +209,7 @@
     {"username": "service-account-rail-simulator", "enabled": true, "serviceAccountClientId": "rail-simulator", "realmRoles": ["integration_ingress"]},
     {"username": "service-account-screening-simulator", "enabled": true, "serviceAccountClientId": "screening-simulator", "realmRoles": ["integration_ingress"]},
     {"username": "service-account-core-banking-service", "enabled": true, "serviceAccountClientId": "core-banking-service", "realmRoles": ["internal_service"]},
+    {"username": "service-account-payment-service", "enabled": true, "serviceAccountClientId": "payment-service", "realmRoles": ["internal_service"]},
     {"username": "service-account-event-projector", "enabled": true, "serviceAccountClientId": "event-projector", "realmRoles": ["internal_service"]},
     {"username": "service-account-expired-token-test", "enabled": true, "serviceAccountClientId": "expired-token-test", "realmRoles": ["integration_ingress"]}
   ]
