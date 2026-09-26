@@ -1,0 +1,717 @@
+I02 completion validation, 2026-09-26; base main cc661d8; prior uncommitted I02 work preserved.
+Resolved initial check failure: psql loopback bypassed password authentication. Tooling now connects to postgres service address; fresh volumes explicitly use SCRAM host auth.
+$ make infra-init infra-config infra-up
+python3 infra/compose/init-env.py
+Local credentials ready; added 0 missing keys; existing values preserved.
+docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml config --quiet
+docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml up -d --wait --wait-timeout 300
+ Container gtb-temporal-1 Running 
+ Container gtb-temporal-ui-1 Running 
+ Container gtb-kafka-1 Running 
+ Container gtb-oidc-1 Running 
+ Container gtb-postgres-1 Recreate 
+ Container gtb-postgres-1 Recreated 
+ Container gtb-postgres-1 Starting 
+ Container gtb-postgres-1 Started 
+ Container gtb-postgres-1 Waiting 
+ Container gtb-postgres-1 Waiting 
+ Container gtb-postgres-1 Healthy 
+ Container gtb-postgres-1 Healthy 
+ Container gtb-temporal-schema-1 Starting 
+ Container gtb-temporal-schema-1 Started 
+ Container gtb-temporal-schema-1 Waiting 
+ Container gtb-temporal-schema-1 Exited 
+ Container gtb-temporal-1 Waiting 
+ Container gtb-temporal-1 Healthy 
+ Container gtb-temporal-namespace-1 Starting 
+ Container gtb-temporal-namespace-1 Started 
+ Container gtb-temporal-namespace-1 Waiting 
+ Container gtb-temporal-namespace-1 Exited 
+ Container gtb-postgres-1 Waiting 
+ Container gtb-temporal-schema-1 Waiting 
+ Container gtb-temporal-1 Waiting 
+ Container gtb-temporal-namespace-1 Waiting 
+ Container gtb-temporal-ui-1 Waiting 
+ Container gtb-kafka-1 Waiting 
+ Container gtb-oidc-1 Waiting 
+ Container gtb-temporal-1 Healthy 
+ Container gtb-temporal-namespace-1 Exited 
+ Container gtb-postgres-1 Healthy 
+ Container gtb-temporal-schema-1 Exited 
+ Container gtb-kafka-1 Healthy 
+ Container gtb-temporal-ui-1 Healthy 
+ Container gtb-oidc-1 Healthy
+exit: 0
+
+$ make infra-init
+python3 infra/compose/init-env.py
+Local credentials ready; added 0 missing keys; existing values preserved.
+
+exit: 0
+
+$ git check-ignore infra/compose/.env
+infra/compose/.env
+
+exit: 0
+
+$ make infra-reset
+Destructive reset requires CONFIRM=delete-gtb-data
+make: *** [infra-reset] Error 1
+exit: 2
+
+$ make db-provision db-migrate db-seed infra-verify infra-restart-check
+python3 infra/compose/database.py provision
+Provisioned payment: database owner/login payment
+Provisioned corebanking: database owner/login corebanking
+Provisioned projections: database owner/login projections
+Provisioned simulators: database owner/login simulators
+python3 infra/compose/database.py migrate
+Migrated payment: checksums verified
+Migrated corebanking: checksums verified
+Migrated projections: checksums verified
+Migrated simulators: checksums verified
+python3 infra/compose/database.py seed
+Seeded payment: synthetic I02 persistence marker
+Seeded corebanking: synthetic I02 persistence marker
+Seeded projections: synthetic I02 persistence marker
+Seeded simulators: synthetic I02 persistence marker
+python3 infra/compose/tests/verify.py
+PASS dependency health and setup jobs
+Provisioned payment: database owner/login payment
+Provisioned corebanking: database owner/login corebanking
+Provisioned projections: database owner/login projections
+Provisioned simulators: database owner/login simulators
+Migrated payment: checksums verified
+Migrated payment: checksums verified
+Migrated corebanking: checksums verified
+Migrated corebanking: checksums verified
+Migrated projections: checksums verified
+Migrated projections: checksums verified
+Migrated simulators: checksums verified
+Migrated simulators: checksums verified
+Seeded payment: synthetic I02 persistence marker
+Seeded corebanking: synthetic I02 persistence marker
+Seeded projections: synthetic I02 persistence marker
+Seeded simulators: synthetic I02 persistence marker
+PASS concurrent migrations and repeat provisioning/seeding preserve data
+PASS 41 cross-domain/admin database write attempts denied; six owner logins authenticate without elevated roles
+PASS migration checksum rejection and atomic rollback
+PASS I02 live verification (restart persistence is a separate down/up comparison)
+python3 infra/compose/tests/restart.py
+PASS all four domain seed/migration records, Temporal namespace, OIDC realm and Kafka message survived down/up
+ Container gtb-temporal-namespace-run-60282cbf9f19 Creating 
+ Container gtb-temporal-namespace-run-60282cbf9f19 Created 
+ Container gtb-oidc-1 Stopping 
+ Container gtb-temporal-ui-1 Stopping 
+ Container gtb-kafka-1 Stopping 
+ Container gtb-temporal-ui-1 Stopped 
+ Container gtb-temporal-ui-1 Removing 
+ Container gtb-temporal-ui-1 Removed 
+ Container gtb-temporal-namespace-1 Stopping 
+ Container gtb-temporal-namespace-1 Stopped 
+ Container gtb-temporal-namespace-1 Removing 
+ Container gtb-temporal-namespace-1 Removed 
+ Container gtb-temporal-1 Stopping 
+ Container gtb-kafka-1 Stopped 
+ Container gtb-kafka-1 Removing 
+ Container gtb-kafka-1 Removed 
+ Container gtb-oidc-1 Stopped 
+ Container gtb-oidc-1 Removing 
+ Container gtb-oidc-1 Removed 
+ Container gtb-temporal-1 Stopped 
+ Container gtb-temporal-1 Removing 
+ Container gtb-temporal-1 Removed 
+ Container gtb-temporal-schema-1 Stopping 
+ Container gtb-temporal-schema-1 Stopped 
+ Container gtb-temporal-schema-1 Removing 
+ Container gtb-temporal-schema-1 Removed 
+ Container gtb-postgres-1 Stopping 
+ Container gtb-postgres-1 Stopped 
+ Container gtb-postgres-1 Removing 
+ Container gtb-postgres-1 Removed 
+ Network gtb_default Removing 
+ Network gtb_default Removed 
+ Network gtb_default Creating 
+ Network gtb_default Creating 
+ Network gtb_default Created 
+ Network gtb_default Created 
+ Container gtb-postgres-1 Creating 
+ Container gtb-kafka-1 Creating 
+ Container gtb-kafka-1 Created 
+ Container gtb-postgres-1 Created 
+ Container gtb-temporal-schema-1 Creating 
+ Container gtb-oidc-1 Creating 
+ Container gtb-temporal-schema-1 Created 
+ Container gtb-temporal-1 Creating 
+ Container gtb-oidc-1 Created 
+ Container gtb-temporal-1 Created 
+ Container gtb-temporal-namespace-1 Creating 
+ Container gtb-temporal-namespace-1 Created 
+ Container gtb-temporal-ui-1 Creating 
+ Container gtb-temporal-ui-1 Created 
+ Container gtb-postgres-1 Starting 
+ Container gtb-kafka-1 Starting 
+ Container gtb-postgres-1 Started 
+ Container gtb-postgres-1 Waiting 
+ Container gtb-postgres-1 Waiting 
+ Container gtb-kafka-1 Started 
+ Container gtb-postgres-1 Healthy 
+ Container gtb-oidc-1 Starting 
+ Container gtb-postgres-1 Healthy 
+ Container gtb-temporal-schema-1 Starting 
+ Container gtb-oidc-1 Started 
+ Container gtb-temporal-schema-1 Started 
+ Container gtb-temporal-schema-1 Waiting 
+ Container gtb-temporal-schema-1 Exited 
+ Container gtb-temporal-1 Starting 
+ Container gtb-temporal-1 Started 
+ Container gtb-temporal-1 Waiting 
+ Container gtb-temporal-1 Healthy 
+ Container gtb-temporal-namespace-1 Starting 
+ Container gtb-temporal-namespace-1 Started 
+ Container gtb-temporal-namespace-1 Waiting 
+ Container gtb-temporal-namespace-1 Exited 
+ Container gtb-temporal-ui-1 Starting 
+ Container gtb-temporal-ui-1 Started 
+ Container gtb-kafka-1 Waiting 
+ Container gtb-oidc-1 Waiting 
+ Container gtb-postgres-1 Waiting 
+ Container gtb-temporal-schema-1 Waiting 
+ Container gtb-temporal-1 Waiting 
+ Container gtb-temporal-namespace-1 Waiting 
+ Container gtb-temporal-ui-1 Waiting 
+ Container gtb-temporal-schema-1 Exited 
+ Container gtb-postgres-1 Healthy 
+ Container gtb-temporal-1 Healthy 
+ Container gtb-temporal-namespace-1 Exited 
+ Container gtb-kafka-1 Healthy 
+ Container gtb-oidc-1 Healthy 
+ Container gtb-temporal-ui-1 Healthy 
+ Container gtb-temporal-namespace-run-bdb42b9db349 Creating 
+ Container gtb-temporal-namespace-run-bdb42b9db349 Created 
+Processed a total of 1 messages
+exit: 0
+
+PASS existing-volume provisioning, credential preservation, explicit reset guard, full live checks and ordinary restart.
+$ make infra-down
+docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml down
+ Container gtb-temporal-ui-1 Stopping 
+ Container gtb-oidc-1 Stopping 
+ Container gtb-kafka-1 Stopping 
+ Container gtb-temporal-ui-1 Stopped 
+ Container gtb-temporal-ui-1 Removing 
+ Container gtb-temporal-ui-1 Removed 
+ Container gtb-temporal-namespace-1 Stopping 
+ Container gtb-temporal-namespace-1 Stopped 
+ Container gtb-temporal-namespace-1 Removing 
+ Container gtb-temporal-namespace-1 Removed 
+ Container gtb-temporal-1 Stopping 
+ Container gtb-kafka-1 Stopped 
+ Container gtb-kafka-1 Removing 
+ Container gtb-kafka-1 Removed 
+ Container gtb-oidc-1 Stopped 
+ Container gtb-oidc-1 Removing 
+ Container gtb-oidc-1 Removed 
+ Container gtb-temporal-1 Stopped 
+ Container gtb-temporal-1 Removing 
+ Container gtb-temporal-1 Removed 
+ Container gtb-temporal-schema-1 Stopping 
+ Container gtb-temporal-schema-1 Stopped 
+ Container gtb-temporal-schema-1 Removing 
+ Container gtb-temporal-schema-1 Removed 
+ Container gtb-postgres-1 Stopping 
+ Container gtb-postgres-1 Stopped 
+ Container gtb-postgres-1 Removing 
+ Container gtb-postgres-1 Removed 
+ Network gtb_default Removing 
+ Network gtb_default Removed
+exit: 0
+
+$ COMPOSE_PROJECT_NAME=gtb-i02-acceptance-5c0bb1f9 make infra-up db-provision db-migrate db-seed infra-verify infra-restart-check
+docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml config --quiet
+docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml up -d --wait --wait-timeout 300
+python3 infra/compose/database.py provision
+Provisioned payment: database owner/login payment
+Provisioned corebanking: database owner/login corebanking
+Provisioned projections: database owner/login projections
+Provisioned simulators: database owner/login simulators
+python3 infra/compose/database.py migrate
+Migrated payment: checksums verified
+Migrated corebanking: checksums verified
+Migrated projections: checksums verified
+Migrated simulators: checksums verified
+python3 infra/compose/database.py seed
+Seeded payment: synthetic I02 persistence marker
+Seeded corebanking: synthetic I02 persistence marker
+Seeded projections: synthetic I02 persistence marker
+Seeded simulators: synthetic I02 persistence marker
+python3 infra/compose/tests/verify.py
+PASS dependency health and setup jobs
+Provisioned payment: database owner/login payment
+Provisioned corebanking: database owner/login corebanking
+Provisioned projections: database owner/login projections
+Provisioned simulators: database owner/login simulators
+Migrated payment: checksums verified
+Migrated payment: checksums verified
+Migrated corebanking: checksums verified
+Migrated corebanking: checksums verified
+Migrated projections: checksums verified
+Migrated projections: checksums verified
+Migrated simulators: checksums verified
+Migrated simulators: checksums verified
+Seeded payment: synthetic I02 persistence marker
+Seeded corebanking: synthetic I02 persistence marker
+Seeded projections: synthetic I02 persistence marker
+Seeded simulators: synthetic I02 persistence marker
+PASS concurrent migrations and repeat provisioning/seeding preserve data
+PASS 41 cross-domain/admin database write attempts denied; six owner logins authenticate without elevated roles
+PASS migration checksum rejection and atomic rollback
+PASS I02 live verification (restart persistence is a separate down/up comparison)
+python3 infra/compose/tests/restart.py
+PASS all four domain seed/migration records, Temporal namespace, OIDC realm and Kafka message survived down/up
+ Volume gtb-i02-acceptance-5c0bb1f9_kafka-data Creating 
+ Network gtb-i02-acceptance-5c0bb1f9_default Creating 
+ Volume gtb-i02-acceptance-5c0bb1f9_kafka-data Creating 
+ Volume gtb-i02-acceptance-5c0bb1f9_postgres-data Creating 
+ Network gtb-i02-acceptance-5c0bb1f9_default Creating 
+ Volume gtb-i02-acceptance-5c0bb1f9_postgres-data Creating 
+ Volume gtb-i02-acceptance-5c0bb1f9_kafka-data Created 
+ Volume gtb-i02-acceptance-5c0bb1f9_kafka-data Created 
+ Volume gtb-i02-acceptance-5c0bb1f9_postgres-data Created 
+ Volume gtb-i02-acceptance-5c0bb1f9_postgres-data Created 
+ Network gtb-i02-acceptance-5c0bb1f9_default Created 
+ Network gtb-i02-acceptance-5c0bb1f9_default Created 
+ Container gtb-i02-acceptance-5c0bb1f9-kafka-1 Creating 
+ Container gtb-i02-acceptance-5c0bb1f9-postgres-1 Creating 
+ Container gtb-i02-acceptance-5c0bb1f9-kafka-1 Created 
+ Container gtb-i02-acceptance-5c0bb1f9-postgres-1 Created 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-schema-1 Creating 
+ Container gtb-i02-acceptance-5c0bb1f9-oidc-1 Creating 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-schema-1 Created 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-1 Creating 
+ Container gtb-i02-acceptance-5c0bb1f9-oidc-1 Created 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-1 Created 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-namespace-1 Creating 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-namespace-1 Created 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-ui-1 Creating 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-ui-1 Created 
+ Container gtb-i02-acceptance-5c0bb1f9-kafka-1 Starting 
+ Container gtb-i02-acceptance-5c0bb1f9-postgres-1 Starting 
+ Container gtb-i02-acceptance-5c0bb1f9-kafka-1 Started 
+ Container gtb-i02-acceptance-5c0bb1f9-postgres-1 Started 
+ Container gtb-i02-acceptance-5c0bb1f9-postgres-1 Waiting 
+ Container gtb-i02-acceptance-5c0bb1f9-postgres-1 Waiting 
+ Container gtb-i02-acceptance-5c0bb1f9-postgres-1 Healthy 
+ Container gtb-i02-acceptance-5c0bb1f9-oidc-1 Starting 
+ Container gtb-i02-acceptance-5c0bb1f9-postgres-1 Healthy 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-schema-1 Starting 
+ Container gtb-i02-acceptance-5c0bb1f9-oidc-1 Started 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-schema-1 Started 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-schema-1 Waiting 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-schema-1 Exited 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-1 Starting 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-1 Started 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-1 Waiting 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-1 Healthy 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-namespace-1 Starting 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-namespace-1 Started 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-namespace-1 Waiting 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-namespace-1 Exited 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-ui-1 Starting 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-ui-1 Started 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-schema-1 Waiting 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-1 Waiting 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-namespace-1 Waiting 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-ui-1 Waiting 
+ Container gtb-i02-acceptance-5c0bb1f9-kafka-1 Waiting 
+ Container gtb-i02-acceptance-5c0bb1f9-oidc-1 Waiting 
+ Container gtb-i02-acceptance-5c0bb1f9-postgres-1 Waiting 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-schema-1 Exited 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-1 Healthy 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-namespace-1 Exited 
+ Container gtb-i02-acceptance-5c0bb1f9-kafka-1 Healthy 
+ Container gtb-i02-acceptance-5c0bb1f9-postgres-1 Healthy 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-ui-1 Healthy 
+ Container gtb-i02-acceptance-5c0bb1f9-oidc-1 Healthy 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-namespace-run-eabdd4086e0c Creating 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-namespace-run-eabdd4086e0c Created 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-ui-1 Stopping 
+ Container gtb-i02-acceptance-5c0bb1f9-kafka-1 Stopping 
+ Container gtb-i02-acceptance-5c0bb1f9-oidc-1 Stopping 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-ui-1 Stopped 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-ui-1 Removing 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-ui-1 Removed 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-namespace-1 Stopping 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-namespace-1 Stopped 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-namespace-1 Removing 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-namespace-1 Removed 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-1 Stopping 
+ Container gtb-i02-acceptance-5c0bb1f9-kafka-1 Stopped 
+ Container gtb-i02-acceptance-5c0bb1f9-kafka-1 Removing 
+ Container gtb-i02-acceptance-5c0bb1f9-kafka-1 Removed 
+ Container gtb-i02-acceptance-5c0bb1f9-oidc-1 Stopped 
+ Container gtb-i02-acceptance-5c0bb1f9-oidc-1 Removing 
+ Container gtb-i02-acceptance-5c0bb1f9-oidc-1 Removed 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-1 Stopped 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-1 Removing 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-1 Removed 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-schema-1 Stopping 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-schema-1 Stopped 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-schema-1 Removing 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-schema-1 Removed 
+ Container gtb-i02-acceptance-5c0bb1f9-postgres-1 Stopping 
+ Container gtb-i02-acceptance-5c0bb1f9-postgres-1 Stopped 
+ Container gtb-i02-acceptance-5c0bb1f9-postgres-1 Removing 
+ Container gtb-i02-acceptance-5c0bb1f9-postgres-1 Removed 
+ Network gtb-i02-acceptance-5c0bb1f9_default Removing 
+ Network gtb-i02-acceptance-5c0bb1f9_default Removed 
+ Network gtb-i02-acceptance-5c0bb1f9_default Creating 
+ Network gtb-i02-acceptance-5c0bb1f9_default Creating 
+ Network gtb-i02-acceptance-5c0bb1f9_default Created 
+ Network gtb-i02-acceptance-5c0bb1f9_default Created 
+ Container gtb-i02-acceptance-5c0bb1f9-postgres-1 Creating 
+ Container gtb-i02-acceptance-5c0bb1f9-kafka-1 Creating 
+ Container gtb-i02-acceptance-5c0bb1f9-kafka-1 Created 
+ Container gtb-i02-acceptance-5c0bb1f9-postgres-1 Created 
+ Container gtb-i02-acceptance-5c0bb1f9-oidc-1 Creating 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-schema-1 Creating 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-schema-1 Created 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-1 Creating 
+ Container gtb-i02-acceptance-5c0bb1f9-oidc-1 Created 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-1 Created 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-namespace-1 Creating 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-namespace-1 Created 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-ui-1 Creating 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-ui-1 Created 
+ Container gtb-i02-acceptance-5c0bb1f9-kafka-1 Starting 
+ Container gtb-i02-acceptance-5c0bb1f9-postgres-1 Starting 
+ Container gtb-i02-acceptance-5c0bb1f9-kafka-1 Started 
+ Container gtb-i02-acceptance-5c0bb1f9-postgres-1 Started 
+ Container gtb-i02-acceptance-5c0bb1f9-postgres-1 Waiting 
+ Container gtb-i02-acceptance-5c0bb1f9-postgres-1 Waiting 
+ Container gtb-i02-acceptance-5c0bb1f9-postgres-1 Healthy 
+ Container gtb-i02-acceptance-5c0bb1f9-postgres-1 Healthy 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-schema-1 Starting 
+ Container gtb-i02-acceptance-5c0bb1f9-oidc-1 Starting 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-schema-1 Started 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-schema-1 Waiting 
+ Container gtb-i02-acceptance-5c0bb1f9-oidc-1 Started 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-schema-1 Exited 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-1 Starting 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-1 Started 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-1 Waiting 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-1 Healthy 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-namespace-1 Starting 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-namespace-1 Started 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-namespace-1 Waiting 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-namespace-1 Exited 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-ui-1 Starting 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-ui-1 Started 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-schema-1 Waiting 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-1 Waiting 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-namespace-1 Waiting 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-ui-1 Waiting 
+ Container gtb-i02-acceptance-5c0bb1f9-kafka-1 Waiting 
+ Container gtb-i02-acceptance-5c0bb1f9-oidc-1 Waiting 
+ Container gtb-i02-acceptance-5c0bb1f9-postgres-1 Waiting 
+ Container gtb-i02-acceptance-5c0bb1f9-postgres-1 Healthy 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-namespace-1 Exited 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-schema-1 Exited 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-1 Healthy 
+ Container gtb-i02-acceptance-5c0bb1f9-kafka-1 Healthy 
+ Container gtb-i02-acceptance-5c0bb1f9-oidc-1 Healthy 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-ui-1 Healthy 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-namespace-run-ae8465f31afa Creating 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-namespace-run-ae8465f31afa Created 
+Processed a total of 1 messages
+exit: 0
+
+$ COMPOSE_PROJECT_NAME=gtb-i02-acceptance-5c0bb1f9 make infra-reset CONFIRM=delete-gtb-data
+docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml down --volumes
+ Container gtb-i02-acceptance-5c0bb1f9-oidc-1 Stopping 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-ui-1 Stopping 
+ Container gtb-i02-acceptance-5c0bb1f9-kafka-1 Stopping 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-ui-1 Stopped 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-ui-1 Removing 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-ui-1 Removed 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-namespace-1 Stopping 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-namespace-1 Stopped 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-namespace-1 Removing 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-namespace-1 Removed 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-1 Stopping 
+ Container gtb-i02-acceptance-5c0bb1f9-kafka-1 Stopped 
+ Container gtb-i02-acceptance-5c0bb1f9-kafka-1 Removing 
+ Container gtb-i02-acceptance-5c0bb1f9-kafka-1 Removed 
+ Container gtb-i02-acceptance-5c0bb1f9-oidc-1 Stopped 
+ Container gtb-i02-acceptance-5c0bb1f9-oidc-1 Removing 
+ Container gtb-i02-acceptance-5c0bb1f9-oidc-1 Removed 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-1 Stopped 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-1 Removing 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-1 Removed 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-schema-1 Stopping 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-schema-1 Stopped 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-schema-1 Removing 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-schema-1 Removed 
+ Container gtb-i02-acceptance-5c0bb1f9-postgres-1 Stopping 
+ Container gtb-i02-acceptance-5c0bb1f9-postgres-1 Stopped 
+ Container gtb-i02-acceptance-5c0bb1f9-postgres-1 Removing 
+ Container gtb-i02-acceptance-5c0bb1f9-postgres-1 Removed 
+ Volume gtb-i02-acceptance-5c0bb1f9_kafka-data Removing 
+ Network gtb-i02-acceptance-5c0bb1f9_default Removing 
+ Volume gtb-i02-acceptance-5c0bb1f9_postgres-data Removing 
+ Volume gtb-i02-acceptance-5c0bb1f9_kafka-data Removed 
+ Volume gtb-i02-acceptance-5c0bb1f9_postgres-data Removed 
+ Network gtb-i02-acceptance-5c0bb1f9_default Removed
+exit: 0
+
+$ COMPOSE_PROJECT_NAME=gtb-i02-acceptance-5c0bb1f9 make infra-up db-provision db-migrate
+docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml config --quiet
+docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml up -d --wait --wait-timeout 300
+python3 infra/compose/database.py provision
+Provisioned payment: database owner/login payment
+Provisioned corebanking: database owner/login corebanking
+Provisioned projections: database owner/login projections
+Provisioned simulators: database owner/login simulators
+python3 infra/compose/database.py migrate
+Migrated payment: checksums verified
+Migrated corebanking: checksums verified
+Migrated projections: checksums verified
+Migrated simulators: checksums verified
+ Network gtb-i02-acceptance-5c0bb1f9_default Creating 
+ Volume gtb-i02-acceptance-5c0bb1f9_postgres-data Creating 
+ Volume gtb-i02-acceptance-5c0bb1f9_postgres-data Creating 
+ Volume gtb-i02-acceptance-5c0bb1f9_kafka-data Creating 
+ Network gtb-i02-acceptance-5c0bb1f9_default Creating 
+ Volume gtb-i02-acceptance-5c0bb1f9_kafka-data Creating 
+ Volume gtb-i02-acceptance-5c0bb1f9_kafka-data Created 
+ Volume gtb-i02-acceptance-5c0bb1f9_kafka-data Created 
+ Volume gtb-i02-acceptance-5c0bb1f9_postgres-data Created 
+ Volume gtb-i02-acceptance-5c0bb1f9_postgres-data Created 
+ Network gtb-i02-acceptance-5c0bb1f9_default Created 
+ Network gtb-i02-acceptance-5c0bb1f9_default Created 
+ Container gtb-i02-acceptance-5c0bb1f9-kafka-1 Creating 
+ Container gtb-i02-acceptance-5c0bb1f9-postgres-1 Creating 
+ Container gtb-i02-acceptance-5c0bb1f9-postgres-1 Created 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-schema-1 Creating 
+ Container gtb-i02-acceptance-5c0bb1f9-oidc-1 Creating 
+ Container gtb-i02-acceptance-5c0bb1f9-kafka-1 Created 
+ Container gtb-i02-acceptance-5c0bb1f9-oidc-1 Created 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-schema-1 Created 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-1 Creating 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-1 Created 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-namespace-1 Creating 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-namespace-1 Created 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-ui-1 Creating 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-ui-1 Created 
+ Container gtb-i02-acceptance-5c0bb1f9-postgres-1 Starting 
+ Container gtb-i02-acceptance-5c0bb1f9-kafka-1 Starting 
+ Container gtb-i02-acceptance-5c0bb1f9-postgres-1 Started 
+ Container gtb-i02-acceptance-5c0bb1f9-postgres-1 Waiting 
+ Container gtb-i02-acceptance-5c0bb1f9-postgres-1 Waiting 
+ Container gtb-i02-acceptance-5c0bb1f9-kafka-1 Started 
+ Container gtb-i02-acceptance-5c0bb1f9-postgres-1 Healthy 
+ Container gtb-i02-acceptance-5c0bb1f9-oidc-1 Starting 
+ Container gtb-i02-acceptance-5c0bb1f9-postgres-1 Healthy 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-schema-1 Starting 
+ Container gtb-i02-acceptance-5c0bb1f9-oidc-1 Started 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-schema-1 Started 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-schema-1 Waiting 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-schema-1 Exited 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-1 Starting 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-1 Started 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-1 Waiting 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-1 Healthy 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-namespace-1 Starting 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-namespace-1 Started 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-namespace-1 Waiting 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-namespace-1 Exited 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-ui-1 Starting 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-ui-1 Started 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-schema-1 Waiting 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-1 Waiting 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-namespace-1 Waiting 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-ui-1 Waiting 
+ Container gtb-i02-acceptance-5c0bb1f9-kafka-1 Waiting 
+ Container gtb-i02-acceptance-5c0bb1f9-oidc-1 Waiting 
+ Container gtb-i02-acceptance-5c0bb1f9-postgres-1 Waiting 
+ Container gtb-i02-acceptance-5c0bb1f9-kafka-1 Healthy 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-schema-1 Exited 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-1 Healthy 
+ Container gtb-i02-acceptance-5c0bb1f9-postgres-1 Healthy 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-namespace-1 Exited 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-ui-1 Healthy 
+ Container gtb-i02-acceptance-5c0bb1f9-oidc-1 Healthy
+exit: 0
+
+$ COMPOSE_PROJECT_NAME=gtb-i02-acceptance-5c0bb1f9 python3 -c 'import sys; sys.path.insert(0, '"'"'infra/compose'"'"'); import database; counts = [database.domain_sql(d, '"'"'SELECT count(*) FROM _gtb.seed_manifest;'"'"').stdout.strip() for d in database.DOMAINS]; assert counts == ['"'"'0'"'"'] * 4, counts; print('"'"'PASS explicit reset removed all four seeded datasets'"'"')'
+PASS explicit reset removed all four seeded datasets
+
+exit: 0
+
+$ COMPOSE_PROJECT_NAME=gtb-i02-acceptance-5c0bb1f9 make db-seed infra-verify
+python3 infra/compose/database.py seed
+Seeded payment: synthetic I02 persistence marker
+Seeded corebanking: synthetic I02 persistence marker
+Seeded projections: synthetic I02 persistence marker
+Seeded simulators: synthetic I02 persistence marker
+python3 infra/compose/tests/verify.py
+PASS dependency health and setup jobs
+Provisioned payment: database owner/login payment
+Provisioned corebanking: database owner/login corebanking
+Provisioned projections: database owner/login projections
+Provisioned simulators: database owner/login simulators
+Migrated payment: checksums verified
+Migrated payment: checksums verified
+Migrated corebanking: checksums verified
+Migrated corebanking: checksums verified
+Migrated projections: checksums verified
+Migrated projections: checksums verified
+Migrated simulators: checksums verified
+Migrated simulators: checksums verified
+Seeded payment: synthetic I02 persistence marker
+Seeded corebanking: synthetic I02 persistence marker
+Seeded projections: synthetic I02 persistence marker
+Seeded simulators: synthetic I02 persistence marker
+PASS concurrent migrations and repeat provisioning/seeding preserve data
+PASS 41 cross-domain/admin database write attempts denied; six owner logins authenticate without elevated roles
+PASS migration checksum rejection and atomic rollback
+PASS I02 live verification (restart persistence is a separate down/up comparison)
+
+exit: 0
+
+$ COMPOSE_PROJECT_NAME=gtb-i02-acceptance-5c0bb1f9 make infra-reset CONFIRM=delete-gtb-data
+docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml down --volumes
+ Container gtb-i02-acceptance-5c0bb1f9-kafka-1 Stopping 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-ui-1 Stopping 
+ Container gtb-i02-acceptance-5c0bb1f9-oidc-1 Stopping 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-ui-1 Stopped 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-ui-1 Removing 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-ui-1 Removed 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-namespace-1 Stopping 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-namespace-1 Stopped 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-namespace-1 Removing 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-namespace-1 Removed 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-1 Stopping 
+ Container gtb-i02-acceptance-5c0bb1f9-kafka-1 Stopped 
+ Container gtb-i02-acceptance-5c0bb1f9-kafka-1 Removing 
+ Container gtb-i02-acceptance-5c0bb1f9-kafka-1 Removed 
+ Container gtb-i02-acceptance-5c0bb1f9-oidc-1 Stopped 
+ Container gtb-i02-acceptance-5c0bb1f9-oidc-1 Removing 
+ Container gtb-i02-acceptance-5c0bb1f9-oidc-1 Removed 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-1 Stopped 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-1 Removing 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-1 Removed 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-schema-1 Stopping 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-schema-1 Stopped 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-schema-1 Removing 
+ Container gtb-i02-acceptance-5c0bb1f9-temporal-schema-1 Removed 
+ Container gtb-i02-acceptance-5c0bb1f9-postgres-1 Stopping 
+ Container gtb-i02-acceptance-5c0bb1f9-postgres-1 Stopped 
+ Container gtb-i02-acceptance-5c0bb1f9-postgres-1 Removing 
+ Container gtb-i02-acceptance-5c0bb1f9-postgres-1 Removed 
+ Volume gtb-i02-acceptance-5c0bb1f9_kafka-data Removing 
+ Volume gtb-i02-acceptance-5c0bb1f9_postgres-data Removing 
+ Network gtb-i02-acceptance-5c0bb1f9_default Removing 
+ Volume gtb-i02-acceptance-5c0bb1f9_kafka-data Removed 
+ Volume gtb-i02-acceptance-5c0bb1f9_postgres-data Removed 
+ Network gtb-i02-acceptance-5c0bb1f9_default Removed
+exit: 0
+
+$ make infra-up
+docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml config --quiet
+docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml up -d --wait --wait-timeout 300
+ Network gtb_default Creating 
+ Network gtb_default Creating 
+ Network gtb_default Created 
+ Network gtb_default Created 
+ Container gtb-postgres-1 Creating 
+ Container gtb-kafka-1 Creating 
+ Container gtb-postgres-1 Created 
+ Container gtb-temporal-schema-1 Creating 
+ Container gtb-oidc-1 Creating 
+ Container gtb-kafka-1 Created 
+ Container gtb-temporal-schema-1 Created 
+ Container gtb-temporal-1 Creating 
+ Container gtb-oidc-1 Created 
+ Container gtb-temporal-1 Created 
+ Container gtb-temporal-namespace-1 Creating 
+ Container gtb-temporal-namespace-1 Created 
+ Container gtb-temporal-ui-1 Creating 
+ Container gtb-temporal-ui-1 Created 
+ Container gtb-postgres-1 Starting 
+ Container gtb-kafka-1 Starting 
+ Container gtb-postgres-1 Started 
+ Container gtb-postgres-1 Waiting 
+ Container gtb-postgres-1 Waiting 
+ Container gtb-kafka-1 Started 
+ Container gtb-postgres-1 Healthy 
+ Container gtb-postgres-1 Healthy 
+ Container gtb-temporal-schema-1 Starting 
+ Container gtb-oidc-1 Starting 
+ Container gtb-temporal-schema-1 Started 
+ Container gtb-temporal-schema-1 Waiting 
+ Container gtb-oidc-1 Started 
+ Container gtb-temporal-schema-1 Exited 
+ Container gtb-temporal-1 Starting 
+ Container gtb-temporal-1 Started 
+ Container gtb-temporal-1 Waiting 
+ Container gtb-temporal-1 Healthy 
+ Container gtb-temporal-namespace-1 Starting 
+ Container gtb-temporal-namespace-1 Started 
+ Container gtb-temporal-namespace-1 Waiting 
+ Container gtb-temporal-namespace-1 Exited 
+ Container gtb-temporal-ui-1 Starting 
+ Container gtb-temporal-ui-1 Started 
+ Container gtb-kafka-1 Waiting 
+ Container gtb-oidc-1 Waiting 
+ Container gtb-postgres-1 Waiting 
+ Container gtb-temporal-schema-1 Waiting 
+ Container gtb-temporal-1 Waiting 
+ Container gtb-temporal-namespace-1 Waiting 
+ Container gtb-temporal-ui-1 Waiting 
+ Container gtb-temporal-1 Healthy 
+ Container gtb-temporal-namespace-1 Exited 
+ Container gtb-postgres-1 Healthy 
+ Container gtb-kafka-1 Healthy 
+ Container gtb-temporal-schema-1 Exited 
+ Container gtb-oidc-1 Healthy 
+ Container gtb-temporal-ui-1 Healthy
+exit: 0
+
+$ make infra-status
+docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml ps --all
+NAME                       IMAGE                              COMMAND                  SERVICE              CREATED          STATUS                      PORTS
+gtb-kafka-1                apache/kafka:4.1.2                 "/__cacert_entrypoin…"   kafka                19 seconds ago   Up 17 seconds (healthy)     127.0.0.1:9092->9092/tcp
+gtb-oidc-1                 quay.io/keycloak/keycloak:26.7.4   "/opt/keycloak/bin/k…"   oidc                 19 seconds ago   Up 12 seconds (healthy)     127.0.0.1:8080->8080/tcp
+gtb-postgres-1             postgres:16.15-bookworm            "docker-entrypoint.s…"   postgres             19 seconds ago   Up 17 seconds (healthy)     127.0.0.1:5432->5432/tcp
+gtb-temporal-1             temporalio/server:1.31.0           "/etc/temporal/entry…"   temporal             19 seconds ago   Up 11 seconds (healthy)     127.0.0.1:7233->7233/tcp
+gtb-temporal-namespace-1   temporalio/admin-tools:1.31.0      "/bin/sh /scripts/na…"   temporal-namespace   18 seconds ago   Exited (0) 6 seconds ago    
+gtb-temporal-schema-1      temporalio/admin-tools:1.31.0      "/bin/sh /scripts/sc…"   temporal-schema      19 seconds ago   Exited (0) 12 seconds ago   
+gtb-temporal-ui-1          temporalio/ui:2.49.1               "./start-ui-server.sh"   temporal-ui          18 seconds ago   Up 5 seconds (healthy)      127.0.0.1:8081->8080/tcp
+
+exit: 0
+
+$ git diff --check
+
+
+exit: 0
+
+PASS final I02 acceptance. Original gtb stack restored healthy with its data; disposable acceptance project removed. Hosted CI not executed.
+
+Final static checks after checkpoint completion:
+$ python3 -Werror -c 'from pathlib import Path; [compile(p.read_text(), str(p), '"'"'exec'"'"') for p in Path('"'"'infra/compose'"'"').rglob('"'"'*.py'"'"')]; print('"'"'PASS Python syntax'"'"')'
+PASS Python syntax
+exit: 0
+
+$ ruby -ryaml -e 'YAML.load_file(".github/workflows/infrastructure.yml"); puts "PASS workflow YAML"'
+PASS workflow YAML
+exit: 0
+
+$ make infra-config
+docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml config --quiet
+exit: 0
+
+$ git diff --check
+exit: 0
+
+PASS generated-credential exclusion scan: compared all local credential values against 26 changed/untracked deliverables; no matches. Values were not printed.

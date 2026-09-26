@@ -39,6 +39,9 @@ The GTB reference application is being implemented alongside the manuscript.
 See [implementation progress](spec/gtb-implementation.md) and the
 [backend developer guide](backend/README.md). With Go 1.27.1 installed, run
 `make deps` then `make check` from this directory to validate the current backend.
+The [local dependency runbook](docs/runbooks/local-development.md) covers the
+I02 Compose stack: `make infra-init infra-up`, then
+`make db-provision db-migrate db-seed`. Run `make infra-verify` for live checks.
 
 ## Suggested Git workflow
 

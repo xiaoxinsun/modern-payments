@@ -1,0 +1,20 @@
+name: Local infrastructure checks
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  infrastructure:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - run: make infra-init infra-config infra-up
+      - run: make db-provision db-migrate db-seed
+      - run: make infra-verify infra-restart-check
+      - if: always()
+        run: make infra-reset CONFIRM=delete-gtb-data

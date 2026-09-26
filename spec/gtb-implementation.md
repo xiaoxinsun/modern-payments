@@ -7,11 +7,11 @@ Planning is complete for this breakdown. **Application implementation is in prog
 ## Resume pointer
 
 - Active phase: none.
-- Next phase: **I02 — Local infrastructure and persistence**.
-- Next action: read [I02](phases/i02.md), inspect the I01 completion handoff and working tree, then mark I02 `in progress` before implementation.
-- Last completed phase: **I01 — Repository scaffold and contracts**.
+- Next phase: **I03 — Authentication and service runtime**.
+- Next action: read [I03](phases/i03.md), inspect the I02 completion handoff and working tree, then mark I03 `in progress` before implementation.
+- Last completed phase: **I02 — Local infrastructure and persistence**.
 - Blockers: none recorded.
-- Last updated: 2026-09-26 — I01 completed; full local checks passed using global Homebrew Go 1.27.1. I02 has not started.
+- Last updated: 2026-09-26 — I02 completed; clean setup, owner isolation, migration/seed checks, restart persistence and explicit reset passed. I03 has not started.
 
 Update these fields whenever the active phase changes or work pauses. If a phase is already active, resume its checkpoint instead of starting the next row.
 
@@ -37,7 +37,7 @@ Allowed statuses: `not started`, `in progress`, `blocked`, `completed`. Start wi
 | Phase | Stage | Deliverable | Depends on | Status |
 | --- | --- | --- | --- | --- |
 | [I01](phases/i01.md) | Infrastructure | Repository scaffold and contracts | — | completed |
-| [I02](phases/i02.md) | Infrastructure | Local infrastructure and persistence | I01 | not started |
+| [I02](phases/i02.md) | Infrastructure | Local infrastructure and persistence | I01 | completed |
 | [I03](phases/i03.md) | Infrastructure | Authentication and service runtime | I02 | not started |
 | [B01](phases/b01.md) | Backend | Core Banking accounts and posting engine | I03 | not started |
 | [B02](phases/b02.md) | Backend | Payment command model and durable receipts | B01 | not started |
@@ -122,6 +122,8 @@ Append rows when starting, blocking, resuming, completing or reopening a phase. 
 | 2026-09-26 | All | Initialized → not started | Phase packets created; application work and validation have not begun. |
 | 2026-09-26 | I01 | not started → in progress | No prerequisites; preserve existing untracked spec files and implement the first scaffold scope item. |
 | 2026-09-26 | I01 | in progress → completed | Shared contracts, ADRs, developer commands and baseline CI delivered; `make check` and nine binary smoke checks passed with global Homebrew Go 1.27.1. See I01 completion evidence/handoff. |
+| 2026-09-26 | I02 | not started → in progress | I01 committed at `cc661d8`; clean working tree and handoff inspected. Start with persistent Compose dependencies. |
+| 2026-09-26 | I02 | in progress → completed | Persistent dependencies, isolated owner databases, transactional migrations, synthetic seeds and runbook/CI delivered. Clean setup, 41 cross-domain write denials, authentication, migration failure/concurrency, restart persistence and isolated destructive reset checks passed; see I02 completion evidence. |
 
 ## Resume request example
 

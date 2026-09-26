@@ -1,0 +1,517 @@
+I02 first bounded item verification, 2026-09-26; main, base cc661d8
+Earlier corrected failures: mounted PostgreSQL shell bootstrap returned 126; replaced by SQL. Temporal default dynamic config missing and CLI absent in server image; supplied explicit config and TCP probe plus health RPC in namespace job. No unresolved startup failure.
+$ docker version --format 'Client={{.Client.Version}} Server={{.Server.Version}}'
+Client=29.7.2 Server=29.7.2
+exit: 0
+
+$ docker compose version
+Docker Compose version v5.5.1
+exit: 0
+
+$ make infra-config
+docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml config --quiet
+exit: 0
+
+$ docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml down --volumes
+ Container gtb-temporal-ui-1 Stopping 
+ Container gtb-oidc-1 Stopping 
+ Container gtb-kafka-1 Stopping 
+ Container gtb-temporal-ui-1 Stopped 
+ Container gtb-temporal-ui-1 Removing 
+ Container gtb-temporal-ui-1 Removed 
+ Container gtb-temporal-namespace-1 Stopping 
+ Container gtb-temporal-namespace-1 Stopped 
+ Container gtb-temporal-namespace-1 Removing 
+ Container gtb-temporal-namespace-1 Removed 
+ Container gtb-temporal-1 Stopping 
+ Container gtb-kafka-1 Stopped 
+ Container gtb-kafka-1 Removing 
+ Container gtb-kafka-1 Removed 
+ Container gtb-oidc-1 Stopped 
+ Container gtb-oidc-1 Removing 
+ Container gtb-oidc-1 Removed 
+ Container gtb-temporal-1 Stopped 
+ Container gtb-temporal-1 Removing 
+ Container gtb-temporal-1 Removed 
+ Container gtb-temporal-schema-1 Stopping 
+ Container gtb-temporal-schema-1 Stopped 
+ Container gtb-temporal-schema-1 Removing 
+ Container gtb-temporal-schema-1 Removed 
+ Container gtb-postgres-1 Stopping 
+ Container gtb-postgres-1 Stopped 
+ Container gtb-postgres-1 Removing 
+ Container gtb-postgres-1 Removed 
+ Volume gtb_kafka-data Removing 
+ Volume gtb_postgres-data Removing 
+ Network gtb_default Removing 
+ Volume gtb_kafka-data Removed 
+ Volume gtb_postgres-data Removed 
+ Network gtb_default Removed
+exit: 0
+
+$ make infra-up
+docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml config --quiet
+docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml up -d --wait --wait-timeout 300
+ Network gtb_default Creating 
+ Volume gtb_postgres-data Creating 
+ Volume gtb_kafka-data Creating 
+ Volume gtb_kafka-data Creating 
+ Volume gtb_postgres-data Creating 
+ Network gtb_default Creating 
+ Volume gtb_kafka-data Created 
+ Volume gtb_kafka-data Created 
+ Volume gtb_postgres-data Created 
+ Volume gtb_postgres-data Created 
+ Network gtb_default Created 
+ Network gtb_default Created 
+ Container gtb-kafka-1 Creating 
+ Container gtb-postgres-1 Creating 
+ Container gtb-postgres-1 Created 
+ Container gtb-temporal-schema-1 Creating 
+ Container gtb-oidc-1 Creating 
+ Container gtb-kafka-1 Created 
+ Container gtb-oidc-1 Created 
+ Container gtb-temporal-schema-1 Created 
+ Container gtb-temporal-1 Creating 
+ Container gtb-temporal-1 Created 
+ Container gtb-temporal-namespace-1 Creating 
+ Container gtb-temporal-namespace-1 Created 
+ Container gtb-temporal-ui-1 Creating 
+ Container gtb-temporal-ui-1 Created 
+ Container gtb-postgres-1 Starting 
+ Container gtb-kafka-1 Starting 
+ Container gtb-postgres-1 Started 
+ Container gtb-postgres-1 Waiting 
+ Container gtb-postgres-1 Waiting 
+ Container gtb-kafka-1 Started 
+ Container gtb-postgres-1 Healthy 
+ Container gtb-oidc-1 Starting 
+ Container gtb-postgres-1 Healthy 
+ Container gtb-temporal-schema-1 Starting 
+ Container gtb-oidc-1 Started 
+ Container gtb-temporal-schema-1 Started 
+ Container gtb-temporal-schema-1 Waiting 
+ Container gtb-temporal-schema-1 Exited 
+ Container gtb-temporal-1 Starting 
+ Container gtb-temporal-1 Started 
+ Container gtb-temporal-1 Waiting 
+ Container gtb-temporal-1 Healthy 
+ Container gtb-temporal-namespace-1 Starting 
+ Container gtb-temporal-namespace-1 Started 
+ Container gtb-temporal-namespace-1 Waiting 
+ Container gtb-temporal-namespace-1 Exited 
+ Container gtb-temporal-ui-1 Starting 
+ Container gtb-temporal-ui-1 Started 
+ Container gtb-temporal-1 Waiting 
+ Container gtb-temporal-namespace-1 Waiting 
+ Container gtb-temporal-ui-1 Waiting 
+ Container gtb-kafka-1 Waiting 
+ Container gtb-oidc-1 Waiting 
+ Container gtb-postgres-1 Waiting 
+ Container gtb-temporal-schema-1 Waiting 
+ Container gtb-temporal-1 Healthy 
+ Container gtb-temporal-schema-1 Exited 
+ Container gtb-temporal-namespace-1 Exited 
+ Container gtb-kafka-1 Healthy 
+ Container gtb-postgres-1 Healthy 
+ Container gtb-temporal-ui-1 Healthy 
+ Container gtb-oidc-1 Healthy
+exit: 0
+
+$ docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml ps --all
+NAME                       IMAGE                              COMMAND                  SERVICE              CREATED          STATUS                      PORTS
+gtb-kafka-1                apache/kafka:4.1.2                 "/__cacert_entrypoin…"   kafka                21 seconds ago   Up 20 seconds (healthy)     127.0.0.1:9092->9092/tcp
+gtb-oidc-1                 quay.io/keycloak/keycloak:26.7.4   "/opt/keycloak/bin/k…"   oidc                 21 seconds ago   Up 15 seconds (healthy)     127.0.0.1:8080->8080/tcp
+gtb-postgres-1             postgres:16.15-bookworm            "docker-entrypoint.s…"   postgres             21 seconds ago   Up 21 seconds (healthy)     127.0.0.1:5432->5432/tcp
+gtb-temporal-1             temporalio/server:1.31.0           "/etc/temporal/entry…"   temporal             21 seconds ago   Up 14 seconds (healthy)     127.0.0.1:7233->7233/tcp
+gtb-temporal-namespace-1   temporalio/admin-tools:1.31.0      "/bin/sh /scripts/na…"   temporal-namespace   21 seconds ago   Exited (0) 9 seconds ago    
+gtb-temporal-schema-1      temporalio/admin-tools:1.31.0      "/bin/sh /scripts/sc…"   temporal-schema      21 seconds ago   Exited (0) 14 seconds ago   
+gtb-temporal-ui-1          temporalio/ui:2.49.1               "./start-ui-server.sh"   temporal-ui          21 seconds ago   Up 8 seconds (healthy)      127.0.0.1:8081->8080/tcp
+exit: 0
+
+$ docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml exec -T postgres psql -X -U gtb_admin -d postgres -v ON_ERROR_STOP=1 -Atc 'CREATE TABLE i02_persistence_probe (marker text PRIMARY KEY); INSERT INTO i02_persistence_probe VALUES ('"'"'i02-restart'"'"');'
+CREATE TABLE
+INSERT 0 1
+exit: 0
+
+$ docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml exec -T postgres psql -X -U gtb_admin -d oidc -Atc 'SELECT id FROM realm WHERE name = '"'"'master'"'"';'
+517ba1d1-b31e-445b-bd58-a161b38252ba
+exit: 0
+
+$ docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml run --rm --no-deps --entrypoint temporal temporal-namespace operator namespace describe --namespace gtb --output json
+ Container gtb-temporal-namespace-run-ecf7860e2cbc Creating 
+ Container gtb-temporal-namespace-run-ecf7860e2cbc Created 
+{
+  "namespaceInfo": {
+    "name": "gtb",
+    "state": "NAMESPACE_STATE_REGISTERED",
+    "id": "23f433d7-5fac-48d3-8209-80b81e409675",
+    "capabilities": {
+      "eagerWorkflowStart": true,
+      "syncUpdate": true,
+      "asyncUpdate": true,
+      "workerHeartbeats": true,
+      "reportedProblemsSearchAttribute": true,
+      "pollerAutoscaling": true
+    },
+    "limits": {
+      "blobSizeLimitError": "2097152",
+      "memoSizeLimitError": "2097152"
+    },
+    "supportsSchedules": true
+  },
+  "config": {
+    "workflowExecutionRetentionTtl": "259200s",
+    "badBinaries": {},
+    "historyArchivalState": "ARCHIVAL_STATE_DISABLED",
+    "visibilityArchivalState": "ARCHIVAL_STATE_DISABLED"
+  },
+  "replicationConfig": {
+    "activeClusterName": "active",
+    "clusters": [
+      {
+        "clusterName": "active"
+      }
+    ],
+    "state": "REPLICATION_STATE_NORMAL"
+  }
+}
+exit: 0
+
+I02 first bounded item verification, 2026-09-26; main, base cc661d8
+Earlier corrected failures: mounted PostgreSQL shell bootstrap returned 126; replaced by SQL. Temporal default dynamic config missing and CLI absent in server image; supplied explicit config and TCP probe plus health RPC in namespace job. No unresolved startup failure.
+$ docker version --format 'Client={{.Client.Version}} Server={{.Server.Version}}'
+Client=29.7.2 Server=29.7.2
+
+exit: 0
+
+$ docker compose version
+Docker Compose version v5.5.1
+
+exit: 0
+
+$ make infra-config
+docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml config --quiet
+
+exit: 0
+
+Continuation: clean startup already passed above. Verification harness initially mixed Compose progress on stderr with JSON stdout; corrected separation and resumed without reset.
+$ make infra-up
+docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml config --quiet
+docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml up -d --wait --wait-timeout 300
+ Container gtb-temporal-1 Running 
+ Container gtb-temporal-ui-1 Running 
+ Container gtb-kafka-1 Running 
+ Container gtb-oidc-1 Running 
+ Container gtb-postgres-1 Running 
+ Container gtb-postgres-1 Waiting 
+ Container gtb-postgres-1 Waiting 
+ Container gtb-postgres-1 Healthy 
+ Container gtb-postgres-1 Healthy 
+ Container gtb-temporal-schema-1 Starting 
+ Container gtb-temporal-schema-1 Started 
+ Container gtb-temporal-schema-1 Waiting 
+ Container gtb-temporal-schema-1 Exited 
+ Container gtb-temporal-1 Waiting 
+ Container gtb-temporal-1 Healthy 
+ Container gtb-temporal-namespace-1 Starting 
+ Container gtb-temporal-namespace-1 Started 
+ Container gtb-temporal-namespace-1 Waiting 
+ Container gtb-temporal-namespace-1 Exited 
+ Container gtb-kafka-1 Waiting 
+ Container gtb-oidc-1 Waiting 
+ Container gtb-postgres-1 Waiting 
+ Container gtb-temporal-schema-1 Waiting 
+ Container gtb-temporal-1 Waiting 
+ Container gtb-temporal-namespace-1 Waiting 
+ Container gtb-temporal-ui-1 Waiting 
+ Container gtb-temporal-1 Healthy 
+ Container gtb-postgres-1 Healthy 
+ Container gtb-kafka-1 Healthy 
+ Container gtb-oidc-1 Healthy 
+ Container gtb-temporal-namespace-1 Exited 
+ Container gtb-temporal-schema-1 Exited 
+ Container gtb-temporal-ui-1 Healthy
+exit: 0
+
+$ docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml ps --all
+NAME                       IMAGE                              COMMAND                  SERVICE              CREATED          STATUS                     PORTS
+gtb-kafka-1                apache/kafka:4.1.2                 "/__cacert_entrypoin…"   kafka                48 seconds ago   Up 48 seconds (healthy)    127.0.0.1:9092->9092/tcp
+gtb-oidc-1                 quay.io/keycloak/keycloak:26.7.4   "/opt/keycloak/bin/k…"   oidc                 48 seconds ago   Up 42 seconds (healthy)    127.0.0.1:8080->8080/tcp
+gtb-postgres-1             postgres:16.15-bookworm            "docker-entrypoint.s…"   postgres             48 seconds ago   Up 48 seconds (healthy)    127.0.0.1:5432->5432/tcp
+gtb-temporal-1             temporalio/server:1.31.0           "/etc/temporal/entry…"   temporal             48 seconds ago   Up 42 seconds (healthy)    127.0.0.1:7233->7233/tcp
+gtb-temporal-namespace-1   temporalio/admin-tools:1.31.0      "/bin/sh /scripts/na…"   temporal-namespace   48 seconds ago   Exited (0) 1 second ago    
+gtb-temporal-schema-1      temporalio/admin-tools:1.31.0      "/bin/sh /scripts/sc…"   temporal-schema      48 seconds ago   Exited (0) 2 seconds ago   
+gtb-temporal-ui-1          temporalio/ui:2.49.1               "./start-ui-server.sh"   temporal-ui          48 seconds ago   Up 36 seconds (healthy)    127.0.0.1:8081->8080/tcp
+
+exit: 0
+
+$ docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml exec -T postgres psql -X -U gtb_admin -d oidc -Atc 'SELECT id FROM realm WHERE name = '"'"'master'"'"';'
+517ba1d1-b31e-445b-bd58-a161b38252ba
+
+exit: 0
+
+$ docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml run --rm --no-deps --entrypoint temporal temporal-namespace operator namespace describe --namespace gtb --output json
+{
+  "namespaceInfo": {
+    "name": "gtb",
+    "state": "NAMESPACE_STATE_REGISTERED",
+    "id": "23f433d7-5fac-48d3-8209-80b81e409675",
+    "capabilities": {
+      "eagerWorkflowStart": true,
+      "syncUpdate": true,
+      "asyncUpdate": true,
+      "workerHeartbeats": true,
+      "reportedProblemsSearchAttribute": true,
+      "pollerAutoscaling": true
+    },
+    "limits": {
+      "blobSizeLimitError": "2097152",
+      "memoSizeLimitError": "2097152"
+    },
+    "supportsSchedules": true
+  },
+  "config": {
+    "workflowExecutionRetentionTtl": "259200s",
+    "badBinaries": {},
+    "historyArchivalState": "ARCHIVAL_STATE_DISABLED",
+    "visibilityArchivalState": "ARCHIVAL_STATE_DISABLED"
+  },
+  "replicationConfig": {
+    "activeClusterName": "active",
+    "clusters": [
+      {
+        "clusterName": "active"
+      }
+    ],
+    "state": "REPLICATION_STATE_NORMAL"
+  }
+}
+ Container gtb-temporal-namespace-run-60603063e6c4 Creating 
+ Container gtb-temporal-namespace-run-60603063e6c4 Created
+exit: 0
+
+$ docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml exec -T kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:19092 --create --topic gtb.i02.persistence-probe --partitions 1 --replication-factor 1
+WARNING: Due to limitations in metric names, topics with a period ('.') or underscore ('_') could collide. To avoid issues it is best to use either, but not both.
+Created topic gtb.i02.persistence-probe.
+
+exit: 0
+
+$ docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml exec -T kafka /opt/kafka/bin/kafka-console-producer.sh --bootstrap-server localhost:19092 --topic gtb.i02.persistence-probe
+stdin: i02-restart
+
+
+exit: 0
+
+$ make infra-down
+docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml down
+ Container gtb-oidc-1 Stopping 
+ Container gtb-temporal-ui-1 Stopping 
+ Container gtb-kafka-1 Stopping 
+ Container gtb-temporal-ui-1 Stopped 
+ Container gtb-temporal-ui-1 Removing 
+ Container gtb-temporal-ui-1 Removed 
+ Container gtb-temporal-namespace-1 Stopping 
+ Container gtb-temporal-namespace-1 Stopped 
+ Container gtb-temporal-namespace-1 Removing 
+ Container gtb-temporal-namespace-1 Removed 
+ Container gtb-temporal-1 Stopping 
+ Container gtb-kafka-1 Stopped 
+ Container gtb-kafka-1 Removing 
+ Container gtb-kafka-1 Removed 
+ Container gtb-oidc-1 Stopped 
+ Container gtb-oidc-1 Removing 
+ Container gtb-oidc-1 Removed 
+ Container gtb-temporal-1 Stopped 
+ Container gtb-temporal-1 Removing 
+ Container gtb-temporal-1 Removed 
+ Container gtb-temporal-schema-1 Stopping 
+ Container gtb-temporal-schema-1 Stopped 
+ Container gtb-temporal-schema-1 Removing 
+ Container gtb-temporal-schema-1 Removed 
+ Container gtb-postgres-1 Stopping 
+ Container gtb-postgres-1 Stopped 
+ Container gtb-postgres-1 Removing 
+ Container gtb-postgres-1 Removed 
+ Network gtb_default Removing 
+ Network gtb_default Removed
+exit: 0
+
+$ make infra-up
+docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml config --quiet
+docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml up -d --wait --wait-timeout 300
+ Network gtb_default Creating 
+ Network gtb_default Creating 
+ Network gtb_default Created 
+ Network gtb_default Created 
+ Container gtb-kafka-1 Creating 
+ Container gtb-postgres-1 Creating 
+ Container gtb-kafka-1 Created 
+ Container gtb-postgres-1 Created 
+ Container gtb-oidc-1 Creating 
+ Container gtb-temporal-schema-1 Creating 
+ Container gtb-temporal-schema-1 Created 
+ Container gtb-temporal-1 Creating 
+ Container gtb-oidc-1 Created 
+ Container gtb-temporal-1 Created 
+ Container gtb-temporal-namespace-1 Creating 
+ Container gtb-temporal-namespace-1 Created 
+ Container gtb-temporal-ui-1 Creating 
+ Container gtb-temporal-ui-1 Created 
+ Container gtb-postgres-1 Starting 
+ Container gtb-kafka-1 Starting 
+ Container gtb-postgres-1 Started 
+ Container gtb-postgres-1 Waiting 
+ Container gtb-postgres-1 Waiting 
+ Container gtb-kafka-1 Started 
+ Container gtb-postgres-1 Healthy 
+ Container gtb-temporal-schema-1 Starting 
+ Container gtb-postgres-1 Healthy 
+ Container gtb-oidc-1 Starting 
+ Container gtb-temporal-schema-1 Started 
+ Container gtb-temporal-schema-1 Waiting 
+ Container gtb-oidc-1 Started 
+ Container gtb-temporal-schema-1 Exited 
+ Container gtb-temporal-1 Starting 
+ Container gtb-temporal-1 Started 
+ Container gtb-temporal-1 Waiting 
+ Container gtb-temporal-1 Healthy 
+ Container gtb-temporal-namespace-1 Starting 
+ Container gtb-temporal-namespace-1 Started 
+ Container gtb-temporal-namespace-1 Waiting 
+ Container gtb-temporal-namespace-1 Exited 
+ Container gtb-temporal-ui-1 Starting 
+ Container gtb-temporal-ui-1 Started 
+ Container gtb-temporal-1 Waiting 
+ Container gtb-temporal-namespace-1 Waiting 
+ Container gtb-temporal-ui-1 Waiting 
+ Container gtb-kafka-1 Waiting 
+ Container gtb-oidc-1 Waiting 
+ Container gtb-postgres-1 Waiting 
+ Container gtb-temporal-schema-1 Waiting 
+ Container gtb-postgres-1 Healthy 
+ Container gtb-temporal-schema-1 Exited 
+ Container gtb-temporal-1 Healthy 
+ Container gtb-temporal-namespace-1 Exited 
+ Container gtb-kafka-1 Healthy 
+ Container gtb-oidc-1 Healthy 
+ Container gtb-temporal-ui-1 Healthy
+exit: 0
+
+$ docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml exec -T postgres psql -X -U gtb_admin -d postgres -v ON_ERROR_STOP=1 -Atc 'SELECT marker FROM i02_persistence_probe;'
+i02-restart
+
+exit: 0
+
+$ docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml exec -T postgres psql -X -U gtb_admin -d oidc -Atc 'SELECT id FROM realm WHERE name = '"'"'master'"'"';'
+517ba1d1-b31e-445b-bd58-a161b38252ba
+
+exit: 0
+
+$ docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml run --rm --no-deps --entrypoint temporal temporal-namespace operator namespace describe --namespace gtb --output json
+{
+  "namespaceInfo": {
+    "name": "gtb",
+    "state": "NAMESPACE_STATE_REGISTERED",
+    "id": "23f433d7-5fac-48d3-8209-80b81e409675",
+    "capabilities": {
+      "eagerWorkflowStart": true,
+      "syncUpdate": true,
+      "asyncUpdate": true,
+      "workerHeartbeats": true,
+      "reportedProblemsSearchAttribute": true,
+      "pollerAutoscaling": true
+    },
+    "limits": {
+      "blobSizeLimitError": "2097152",
+      "memoSizeLimitError": "2097152"
+    },
+    "supportsSchedules": true
+  },
+  "config": {
+    "workflowExecutionRetentionTtl": "259200s",
+    "badBinaries": {},
+    "historyArchivalState": "ARCHIVAL_STATE_DISABLED",
+    "visibilityArchivalState": "ARCHIVAL_STATE_DISABLED"
+  },
+  "replicationConfig": {
+    "activeClusterName": "active",
+    "clusters": [
+      {
+        "clusterName": "active"
+      }
+    ],
+    "state": "REPLICATION_STATE_NORMAL"
+  }
+}
+ Container gtb-temporal-namespace-run-3b46d2f79893 Creating 
+ Container gtb-temporal-namespace-run-3b46d2f79893 Created
+exit: 0
+
+$ docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml exec -T kafka /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server localhost:19092 --topic gtb.i02.persistence-probe --from-beginning --max-messages 1 --timeout-ms 15000
+i02-restart
+Processed a total of 1 messages
+exit: 0
+
+$ curl --fail --silent --output /dev/null --write-out '%{http_code}
+' http://localhost:8081/
+200
+
+exit: 0
+
+$ curl --fail --silent http://localhost:8080/realms/master/.well-known/openid-configuration
+{"issuer":"http://localhost:8080/realms/master","authorization_endpoint":"http://localhost:8080/realms/master/protocol/openid-connect/auth","token_endpoint":"http://localhost:8080/realms/master/protocol/openid-connect/token","introspection_endpoint":"http://localhost:8080/realms/master/protocol/openid-connect/token/introspect","userinfo_endpoint":"http://localhost:8080/realms/master/protocol/openid-connect/userinfo","end_session_endpoint":"http://localhost:8080/realms/master/protocol/openid-connect/logout","frontchannel_logout_session_supported":true,"frontchannel_logout_supported":true,"jwks_uri":"http://localhost:8080/realms/master/protocol/openid-connect/certs","check_session_iframe":"http://localhost:8080/realms/master/protocol/openid-connect/login-status-iframe.html","grant_types_supported":["authorization_code","client_credentials","implicit","password","refresh_token","urn:ietf:params:oauth:grant-type:device_code","urn:ietf:params:oauth:grant-type:jwt-bearer","urn:ietf:params:oauth:grant-type:token-exchange","urn:ietf:params:oauth:grant-type:uma-ticket","urn:openid:params:grant-type:ciba"],"acr_values_supported":["0","1"],"response_types_supported":["code","none","id_token","token","id_token token","code id_token","code token","code id_token token"],"subject_types_supported":["public","pairwise"],"prompt_values_supported":["none","login","consent"],"id_token_signing_alg_values_supported":["PS384","RS384","EdDSA","ES384","HS256","HS512","ES256","RS256","HS384","ES512","PS256","PS512","RS512"],"id_token_encryption_alg_values_supported":["ECDH-ES+A256KW","ECDH-ES+A192KW","ECDH-ES+A128KW","RSA-OAEP","RSA-OAEP-256","RSA1_5","ECDH-ES"],"id_token_encryption_enc_values_supported":["A256GCM","A192GCM","A128GCM","A128CBC-HS256","A192CBC-HS384","A256CBC-HS512"],"userinfo_signing_alg_values_supported":["PS384","RS384","EdDSA","ES384","HS256","HS512","ES256","RS256","HS384","ES512","PS256","PS512","RS512","none"],"userinfo_encryption_alg_values_supported":["ECDH-ES+A256KW","ECDH-ES+A192KW","ECDH-ES+A128KW","RSA-OAEP","RSA-OAEP-256","RSA1_5","ECDH-ES"],"userinfo_encryption_enc_values_supported":["A256GCM","A192GCM","A128GCM","A128CBC-HS256","A192CBC-HS384","A256CBC-HS512"],"request_object_signing_alg_values_supported":["PS384","RS384","EdDSA","ES384","HS256","HS512","ES256","RS256","HS384","ES512","PS256","PS512","RS512","none"],"request_object_encryption_alg_values_supported":["ECDH-ES+A256KW","ECDH-ES+A192KW","ECDH-ES+A128KW","RSA-OAEP","RSA-OAEP-256","RSA1_5","ECDH-ES"],"request_object_encryption_enc_values_supported":["A256GCM","A192GCM","A128GCM","A128CBC-HS256","A192CBC-HS384","A256CBC-HS512"],"response_modes_supported":["query","fragment","form_post","query.jwt","fragment.jwt","form_post.jwt","jwt"],"registration_endpoint":"http://localhost:8080/realms/master/clients-registrations/openid-connect","token_endpoint_auth_methods_supported":["private_key_jwt","client_secret_basic","client_secret_post","tls_client_auth","client_secret_jwt"],"token_endpoint_auth_signing_alg_values_supported":["PS384","RS384","EdDSA","ES384","HS256","HS512","ES256","RS256","HS384","ES512","PS256","PS512","RS512"],"introspection_endpoint_auth_methods_supported":["private_key_jwt","client_secret_basic","client_secret_post","tls_client_auth","client_secret_jwt"],"introspection_endpoint_auth_signing_alg_values_supported":["PS384","RS384","EdDSA","ES384","HS256","HS512","ES256","RS256","HS384","ES512","PS256","PS512","RS512"],"authorization_signing_alg_values_supported":["PS384","RS384","EdDSA","ES384","HS256","HS512","ES256","RS256","HS384","ES512","PS256","PS512","RS512"],"authorization_encryption_alg_values_supported":["ECDH-ES+A256KW","ECDH-ES+A192KW","ECDH-ES+A128KW","RSA-OAEP","RSA-OAEP-256","RSA1_5","ECDH-ES"],"authorization_encryption_enc_values_supported":["A256GCM","A192GCM","A128GCM","A128CBC-HS256","A192CBC-HS384","A256CBC-HS512"],"claims_supported":["iss","sub","aud","exp","iat","auth_time","name","given_name","family_name","preferred_username","email","acr","azp","nonce"],"claim_types_supported":["normal"],"claims_parameter_supported":true,"scopes_supported":["openid","microprofile-jwt","roles","basic","email","profile","address","phone","organization","acr","service_account","web-origins","offline_access"],"request_parameter_supported":true,"request_uri_parameter_supported":true,"require_request_uri_registration":true,"code_challenge_methods_supported":["plain","S256"],"tls_client_certificate_bound_access_tokens":true,"dpop_signing_alg_values_supported":["PS384","RS384","EdDSA","ES384","ES256","RS256","ES512","PS256","PS512","RS512"],"revocation_endpoint":"http://localhost:8080/realms/master/protocol/openid-connect/revoke","revocation_endpoint_auth_methods_supported":["private_key_jwt","client_secret_basic","client_secret_post","tls_client_auth","client_secret_jwt"],"revocation_endpoint_auth_signing_alg_values_supported":["PS384","RS384","EdDSA","ES384","HS256","HS512","ES256","RS256","HS384","ES512","PS256","PS512","RS512"],"backchannel_logout_supported":true,"backchannel_logout_session_supported":true,"device_authorization_endpoint":"http://localhost:8080/realms/master/protocol/openid-connect/auth/device","backchannel_token_delivery_modes_supported":["poll","ping"],"backchannel_authentication_endpoint":"http://localhost:8080/realms/master/protocol/openid-connect/ext/ciba/auth","backchannel_authentication_request_signing_alg_values_supported":["PS384","RS384","EdDSA","ES384","ES256","RS256","ES512","PS256","PS512","RS512"],"require_pushed_authorization_requests":false,"pushed_authorization_request_endpoint":"http://localhost:8080/realms/master/protocol/openid-connect/ext/par/request","mtls_endpoint_aliases":{"token_endpoint":"http://localhost:8080/realms/master/protocol/openid-connect/token","revocation_endpoint":"http://localhost:8080/realms/master/protocol/openid-connect/revoke","introspection_endpoint":"http://localhost:8080/realms/master/protocol/openid-connect/token/introspect","device_authorization_endpoint":"http://localhost:8080/realms/master/protocol/openid-connect/auth/device","registration_endpoint":"http://localhost:8080/realms/master/clients-registrations/openid-connect","userinfo_endpoint":"http://localhost:8080/realms/master/protocol/openid-connect/userinfo","pushed_authorization_request_endpoint":"http://localhost:8080/realms/master/protocol/openid-connect/ext/par/request","backchannel_authentication_endpoint":"http://localhost:8080/realms/master/protocol/openid-connect/ext/ciba/auth"},"authorization_response_iss_parameter_supported":true}
+
+exit: 0
+
+PASS: PostgreSQL marker, OIDC master realm ID, Temporal namespace ID and Kafka record survived down/up.
+$ docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml exec -T postgres psql -X -U gtb_admin -d postgres -v ON_ERROR_STOP=1 -Atc 'DROP TABLE i02_persistence_probe;'
+DROP TABLE
+
+exit: 0
+
+$ docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml exec -T kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:19092 --delete --topic gtb.i02.persistence-probe
+
+
+exit: 0
+
+$ make infra-init
+python3 infra/compose/init-env.py
+infra/compose/.env already exists; left unchanged.
+
+exit: 0
+
+$ git check-ignore infra/compose/.env
+infra/compose/.env
+
+exit: 0
+
+PASS: infra-init preserved existing credentials, mode 0600; .env ignored.
+$ sh -n infra/compose/temporal/schema.sh
+
+
+exit: 0
+
+$ sh -n infra/compose/temporal/namespace.sh
+
+
+exit: 0
+
+$ git diff --check
+
+
+exit: 0
+
+$ docker compose --env-file infra/compose/.env -f infra/compose/compose.yaml ps --all
+NAME                       IMAGE                              COMMAND                  SERVICE              CREATED          STATUS                      PORTS
+gtb-kafka-1                apache/kafka:4.1.2                 "/__cacert_entrypoin…"   kafka                22 seconds ago   Up 21 seconds (healthy)     127.0.0.1:9092->9092/tcp
+gtb-oidc-1                 quay.io/keycloak/keycloak:26.7.4   "/opt/keycloak/bin/k…"   oidc                 22 seconds ago   Up 16 seconds (healthy)     127.0.0.1:8080->8080/tcp
+gtb-postgres-1             postgres:16.15-bookworm            "docker-entrypoint.s…"   postgres             22 seconds ago   Up 21 seconds (healthy)     127.0.0.1:5432->5432/tcp
+gtb-temporal-1             temporalio/server:1.31.0           "/etc/temporal/entry…"   temporal             22 seconds ago   Up 15 seconds (healthy)     127.0.0.1:7233->7233/tcp
+gtb-temporal-namespace-1   temporalio/admin-tools:1.31.0      "/bin/sh /scripts/na…"   temporal-namespace   22 seconds ago   Exited (0) 9 seconds ago    
+gtb-temporal-schema-1      temporalio/admin-tools:1.31.0      "/bin/sh /scripts/sc…"   temporal-schema      22 seconds ago   Exited (0) 16 seconds ago   
+gtb-temporal-ui-1          temporalio/ui:2.49.1               "./start-ui-server.sh"   temporal-ui          22 seconds ago   Up 9 seconds (healthy)      127.0.0.1:8081->8080/tcp
+
+exit: 0
+
+PASS: clean startup and persistent infrastructure checks. Application roles/migrations/seeds and their isolation checks remain out of scope for this item. No backend code changed; backend checks not rerun.

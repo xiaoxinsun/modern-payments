@@ -1,1 +1,3 @@
 /.build/
+/infra/compose/.env
+__pycache__/
