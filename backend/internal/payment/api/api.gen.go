@@ -6,6 +6,7 @@
 package api
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -248,6 +249,30 @@ type DispatchStatus string
 // ExecutionOutcome defines model for ExecutionOutcome.
 type ExecutionOutcome string
 
+// JournalEntry defines model for JournalEntry.
+type JournalEntry struct {
+	// Event Event envelope as defined by events/v1/envelope.schema.json, with its typed payload.
+	Event    map[string]interface{}                     `json:"event"`
+	Position ContractsCommonV1TypesDefsPositiveSequence `json:"position"`
+}
+
+// JournalPage defines model for JournalPage.
+type JournalPage struct {
+	Entries []JournalEntry `json:"entries"`
+}
+
+// JournalWatermark defines model for JournalWatermark.
+type JournalWatermark struct {
+	// Events Non-negative decimal string.
+	Events string `json:"events"`
+
+	// Payments Non-negative decimal string.
+	Payments string `json:"payments"`
+
+	// Position Non-negative decimal string.
+	Position string `json:"position"`
+}
+
 // LifecycleState defines model for LifecycleState.
 type LifecycleState string
 
@@ -359,6 +384,35 @@ type GetPaymentReceiptParams struct {
 	XCorrelationID *SharedCorrelationID `json:"X-Correlation-ID,omitempty"`
 }
 
+// ListPaymentJournalParams defines parameters for ListPaymentJournal.
+type ListPaymentJournalParams struct {
+	// AfterPosition Exclusive lower bound.
+	AfterPosition int64 `form:"afterPosition" json:"afterPosition"`
+
+	// UpToPosition Inclusive upper bound, normally a watermark.
+	UpToPosition int64 `form:"upToPosition" json:"upToPosition"`
+	Limit        *int  `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// XCorrelationID Use a valid supplied UUIDv4 or generate one when absent; echo on every response.
+	XCorrelationID *SharedCorrelationID `json:"X-Correlation-ID,omitempty"`
+}
+
+// GetPaymentJournalWatermarkParams defines parameters for GetPaymentJournalWatermark.
+type GetPaymentJournalWatermarkParams struct {
+	// XCorrelationID Use a valid supplied UUIDv4 or generate one when absent; echo on every response.
+	XCorrelationID *SharedCorrelationID `json:"X-Correlation-ID,omitempty"`
+}
+
+// ListPaymentEventsParams defines parameters for ListPaymentEvents.
+type ListPaymentEventsParams struct {
+	// AfterSequence Exclusive lower bound on eventSequence.
+	AfterSequence int64 `form:"afterSequence" json:"afterSequence"`
+	Limit         *int  `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// XCorrelationID Use a valid supplied UUIDv4 or generate one when absent; echo on every response.
+	XCorrelationID *SharedCorrelationID `json:"X-Correlation-ID,omitempty"`
+}
+
 // SubmitPaymentJSONRequestBody defines body for SubmitPayment for application/json ContentType.
 type SubmitPaymentJSONRequestBody = PaymentRequest
 
@@ -373,6 +427,15 @@ type ServerInterface interface {
 	// GetPaymentReceipt Read the authoritative command-store record of a payment.
 	// (GET /api/v1/payments/{paymentId}/receipt)
 	GetPaymentReceipt(w http.ResponseWriter, r *http.Request, paymentId ContractsCommonV1TypesDefsID, params GetPaymentReceiptParams)
+	// ListPaymentJournal Page the payment event journal in position order.
+	// (GET /integrations/v1/payment-events)
+	ListPaymentJournal(w http.ResponseWriter, r *http.Request, params ListPaymentJournalParams)
+	// GetPaymentJournalWatermark Read the payment event journal watermark.
+	// (GET /integrations/v1/payment-events/watermark)
+	GetPaymentJournalWatermark(w http.ResponseWriter, r *http.Request, params GetPaymentJournalWatermarkParams)
+	// ListPaymentEvents Read one payment's events after a sequence.
+	// (GET /integrations/v1/payments/{paymentId}/events)
+	ListPaymentEvents(w http.ResponseWriter, r *http.Request, paymentId ContractsCommonV1TypesDefsID, params ListPaymentEventsParams)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -548,6 +611,203 @@ func (siw *ServerInterfaceWrapper) GetPaymentReceipt(w http.ResponseWriter, r *h
 	handler.ServeHTTP(w, r)
 }
 
+// ListPaymentJournal operation middleware
+func (siw *ServerInterfaceWrapper) ListPaymentJournal(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListPaymentJournalParams
+
+	// ------------- Required query parameter "afterPosition" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "afterPosition", r.URL.Query(), &params.AfterPosition, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "afterPosition"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "afterPosition", Err: err})
+		}
+		return
+	}
+
+	// ------------- Required query parameter "upToPosition" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "upToPosition", r.URL.Query(), &params.UpToPosition, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "upToPosition"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "upToPosition", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "X-Correlation-ID" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Correlation-ID")]; found {
+		var XCorrelationID SharedCorrelationID
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Correlation-ID", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Correlation-ID", valueList[0], &XCorrelationID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Correlation-ID", Err: err})
+			return
+		}
+
+		params.XCorrelationID = &XCorrelationID
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListPaymentJournal(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetPaymentJournalWatermark operation middleware
+func (siw *ServerInterfaceWrapper) GetPaymentJournalWatermark(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetPaymentJournalWatermarkParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "X-Correlation-ID" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Correlation-ID")]; found {
+		var XCorrelationID SharedCorrelationID
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Correlation-ID", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Correlation-ID", valueList[0], &XCorrelationID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Correlation-ID", Err: err})
+			return
+		}
+
+		params.XCorrelationID = &XCorrelationID
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPaymentJournalWatermark(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListPaymentEvents operation middleware
+func (siw *ServerInterfaceWrapper) ListPaymentEvents(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "paymentId" -------------
+	var paymentId ContractsCommonV1TypesDefsID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "paymentId", r.PathValue("paymentId"), &paymentId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "paymentId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListPaymentEventsParams
+
+	// ------------- Required query parameter "afterSequence" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "afterSequence", r.URL.Query(), &params.AfterSequence, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "afterSequence"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "afterSequence", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "X-Correlation-ID" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Correlation-ID")]; found {
+		var XCorrelationID SharedCorrelationID
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Correlation-ID", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Correlation-ID", valueList[0], &XCorrelationID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Correlation-ID", Err: err})
+			return
+		}
+
+		params.XCorrelationID = &XCorrelationID
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListPaymentEvents(w, r, paymentId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 type UnescapedCookieParamError struct {
 	ParamName string
 	Err       error
@@ -671,6 +931,9 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/commands/{commandId}", wrapper.GetCommand)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/payments", wrapper.SubmitPayment)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/payments/{paymentId}/receipt", wrapper.GetPaymentReceipt)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/integrations/v1/payment-events", wrapper.ListPaymentJournal)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/integrations/v1/payment-events/watermark", wrapper.GetPaymentJournalWatermark)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/integrations/v1/payments/{paymentId}/events", wrapper.ListPaymentEvents)
 
 	return m
 }

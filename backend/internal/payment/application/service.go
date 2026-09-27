@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"gtb.local/backend/internal/contracts"
 	"gtb.local/backend/internal/payment/domain"
 	"gtb.local/backend/internal/platform/auth"
 	"gtb.local/backend/internal/platform/value"
@@ -94,6 +95,27 @@ type Store interface {
 	Receipt(context.Context, value.ID, value.ID) (Receipt, error)
 	Payment(context.Context, value.ID) (PaymentRecord, error)
 	Command(context.Context, value.ID) (Command, error)
+}
+
+// JournalEntry is one committed domain event with its global journal position.
+type JournalEntry struct {
+	Position int64
+	Event    contracts.Event
+}
+
+// JournalWatermark is the highest allocated journal position and the counts of
+// events and payments at or below it, read from one snapshot.
+type JournalWatermark struct {
+	Position   int64
+	Events     int64
+	Aggregates int64
+}
+
+// Journal is the read-only payment event journal used by projection consumers.
+type Journal interface {
+	JournalWatermark(context.Context) (JournalWatermark, error)
+	Journal(ctx context.Context, afterPosition, upToPosition int64, limit int32) ([]JournalEntry, error)
+	AggregateJournal(ctx context.Context, paymentID value.ID, afterSequence int64, limit int32) ([]JournalEntry, error)
 }
 
 type Service struct {

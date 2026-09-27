@@ -529,6 +529,84 @@ func (q *Queries) LockOperationIdentity(ctx context.Context, operationID string)
 	return err
 }
 
+const lockPendingPostingOutbox = `-- name: LockPendingPostingOutbox :many
+SELECT e.event_id, e.event_type, e.schema_version, e.aggregate_type, e.aggregate_id,
+       e.aggregate_version, e.event_sequence, e.occurred_at, e.recorded_at,
+       e.correlation_id, e.causation_id, e.source, e.payload
+FROM app.posting_outbox o
+JOIN app.posting_events e ON e.event_id = o.event_id
+WHERE o.published_at IS NULL
+ORDER BY o.occurred_at, o.event_id
+LIMIT $1
+FOR UPDATE OF o SKIP LOCKED
+`
+
+func (q *Queries) LockPendingPostingOutbox(ctx context.Context, batchSize int32) ([]AppPostingEvent, error) {
+	rows, err := q.db.Query(ctx, lockPendingPostingOutbox, batchSize)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []AppPostingEvent{}
+	for rows.Next() {
+		var i AppPostingEvent
+		if err := rows.Scan(
+			&i.EventID,
+			&i.EventType,
+			&i.SchemaVersion,
+			&i.AggregateType,
+			&i.AggregateID,
+			&i.AggregateVersion,
+			&i.EventSequence,
+			&i.OccurredAt,
+			&i.RecordedAt,
+			&i.CorrelationID,
+			&i.CausationID,
+			&i.Source,
+			&i.Payload,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const markPostingOutboxFailed = `-- name: MarkPostingOutboxFailed :exec
+UPDATE app.posting_outbox
+SET delivery_attempts = delivery_attempts + 1, last_error = $1
+WHERE event_id = $2 AND published_at IS NULL
+`
+
+type MarkPostingOutboxFailedParams struct {
+	LastError *string
+	EventID   uuid.UUID
+}
+
+func (q *Queries) MarkPostingOutboxFailed(ctx context.Context, arg MarkPostingOutboxFailedParams) error {
+	_, err := q.db.Exec(ctx, markPostingOutboxFailed, arg.LastError, arg.EventID)
+	return err
+}
+
+const markPostingOutboxPublished = `-- name: MarkPostingOutboxPublished :exec
+UPDATE app.posting_outbox
+SET published_at = $1, delivery_attempts = delivery_attempts + 1, last_error = NULL
+WHERE event_id = ANY($2::uuid[]) AND published_at IS NULL
+`
+
+type MarkPostingOutboxPublishedParams struct {
+	PublishedAt pgtype.Timestamptz
+	EventIds    []uuid.UUID
+}
+
+func (q *Queries) MarkPostingOutboxPublished(ctx context.Context, arg MarkPostingOutboxPublishedParams) error {
+	_, err := q.db.Exec(ctx, markPostingOutboxPublished, arg.PublishedAt, arg.EventIds)
+	return err
+}
+
 const releaseHold = `-- name: ReleaseHold :one
 UPDATE app.holds
 SET status = 'RELEASED', released_by_operation_id = $2, updated_at = now()

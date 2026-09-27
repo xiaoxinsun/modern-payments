@@ -1,4 +1,5 @@
-// Command core-banking-service serves the authenticated Core Banking port.
+// Command core-banking-service serves the authenticated Core Banking port and
+// relays its posting outbox to Kafka.
 package main
 
 import (
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"gtb.local/backend/internal/corebanking"
+	"gtb.local/backend/internal/eventing"
 	"gtb.local/backend/internal/platform/auth"
 	platformruntime "gtb.local/backend/internal/platform/runtime"
 	platformtelemetry "gtb.local/backend/internal/platform/telemetry"
@@ -54,6 +56,21 @@ func main() {
 		logger.Error("authentication configuration failed", "error", err)
 		os.Exit(1)
 	}
+
+	// Kafka availability does not affect readiness: undelivered postings stay in
+	// the outbox and the relay retries with backoff.
+	brokers := eventing.Brokers()
+	producer, err := eventing.NewProducer(brokers, config.ServiceName)
+	if err != nil {
+		logger.Error("Kafka producer configuration failed", "error", err)
+		os.Exit(1)
+	}
+	defer producer.Close()
+	relay := eventing.NewRelay("corebanking-postings", eventing.CoreBankingPostingsTopic, service, eventing.KafkaPublisher{Client: producer}, logger)
+	relayDone := make(chan struct{})
+	go func() { defer close(relayDone); relay.Run(ctx) }()
+	defer func() { stop(); <-relayDone }()
+	logger.Info("posting outbox relay configured", "kafka_brokers", brokers, "topic", eventing.CoreBankingPostingsTopic)
 
 	health := platformruntime.NewHealth(map[string]platformruntime.ReadinessCheck{
 		"database": service.Ready, "oidc_signing_keys": verifier.Ready,

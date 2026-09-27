@@ -79,6 +79,34 @@ FROM pg_roles WHERE rolname = current_user;
         require(attributes == "t", f"Elevated role or membership for {role}")
     print(f"PASS {denied} cross-domain/admin database write attempts denied; six owner logins authenticate without elevated roles", flush=True)
 
+    # B03 CQRS read credentials: query_reader reads query models only.
+    reader, key = db.READER, "QUERY_READER_DB_PASSWORD"
+    require(db.psql(reader, db.READER_DATABASE, key, "SELECT count(*) >= 1 FROM app.projection_generations WHERE status = 'ACTIVE';").stdout.strip() == "t",
+            "query_reader cannot read the active projection generation")
+    reader_denied = 0
+    for statement in ("INSERT INTO app.consumer_status VALUES ('i02-probe', now(), NULL);",
+                      "SET SESSION CHARACTERISTICS AS TRANSACTION READ WRITE; DELETE FROM app.payment_summary;",
+                      "SELECT record_value FROM app.repair_queue;", "SELECT envelope FROM app.pending_events;",
+                      "SELECT * FROM app.inbox;", "CREATE TABLE app.reader_probe(id integer);"):
+        result = db.psql(reader, db.READER_DATABASE, key, statement, check=False)
+        require(result.returncode != 0 and ("permission denied" in result.stderr or "read-only transaction" in result.stderr),
+                f"Expected query_reader denial for {statement!r}; got {result.stderr}")
+        reader_denied += 1
+    for database in databases:
+        if database == db.READER_DATABASE:
+            continue
+        result = db.psql(reader, database, key, "SELECT 1;", check=False)
+        require(result.returncode != 0 and "permission denied for database" in result.stderr,
+                f"Expected CONNECT denial for {reader} -> {database}; got {result.stderr}")
+        reader_denied += 1
+    attributes = db.psql(reader, db.READER_DATABASE, key, """
+SELECT NOT (rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls)
+       AND NOT EXISTS (SELECT FROM pg_auth_members WHERE member = current_user::regrole)
+FROM pg_roles WHERE rolname = current_user;
+""").stdout.strip()
+    require(attributes == "t", f"Elevated role or membership for {reader}")
+    print(f"PASS query_reader reads query models; {reader_denied} writes, private columns and other databases denied", flush=True)
+
     # A changed historical file must fail before executing any DDL.
     original = db.ROOT / "backend/migrations/payment"
     with tempfile.TemporaryDirectory(prefix="gtb-i02-migrations-") as temporary:

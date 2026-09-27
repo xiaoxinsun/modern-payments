@@ -432,6 +432,174 @@ func (q *Queries) InsertWorkflowDispatch(ctx context.Context, arg InsertWorkflow
 	return err
 }
 
+const journalWatermark = `-- name: JournalWatermark :one
+SELECT COALESCE(max(journal_position), 0)::bigint AS watermark,
+       count(*)::bigint AS events,
+       count(DISTINCT aggregate_id)::bigint AS aggregates
+FROM app.domain_events
+`
+
+type JournalWatermarkRow struct {
+	Watermark  int64
+	Events     int64
+	Aggregates int64
+}
+
+func (q *Queries) JournalWatermark(ctx context.Context) (JournalWatermarkRow, error) {
+	row := q.db.QueryRow(ctx, journalWatermark)
+	var i JournalWatermarkRow
+	err := row.Scan(&i.Watermark, &i.Events, &i.Aggregates)
+	return i, err
+}
+
+const listAggregateJournal = `-- name: ListAggregateJournal :many
+SELECT e.journal_position, e.event_id, e.event_type, e.schema_version, e.aggregate_type, e.aggregate_id,
+       e.aggregate_version, e.event_sequence, e.occurred_at, e.recorded_at, e.correlation_id,
+       e.causation_id, e.source, e.payload,
+       v.to_state AS version_lifecycle_state, v.to_outcome AS version_execution_outcome
+FROM app.domain_events e
+JOIN app.payment_versions v ON v.payment_id = e.aggregate_id AND v.version = e.aggregate_version
+WHERE e.aggregate_id = $1 AND e.event_sequence > $2
+ORDER BY e.event_sequence
+LIMIT $3
+`
+
+type ListAggregateJournalParams struct {
+	AggregateID   uuid.UUID
+	AfterSequence int64
+	PageSize      int32
+}
+
+type ListAggregateJournalRow struct {
+	JournalPosition         int64
+	EventID                 uuid.UUID
+	EventType               string
+	SchemaVersion           int32
+	AggregateType           string
+	AggregateID             uuid.UUID
+	AggregateVersion        int64
+	EventSequence           int64
+	OccurredAt              pgtype.Timestamptz
+	RecordedAt              pgtype.Timestamptz
+	CorrelationID           uuid.UUID
+	CausationID             uuid.UUID
+	Source                  string
+	Payload                 []byte
+	VersionLifecycleState   string
+	VersionExecutionOutcome string
+}
+
+func (q *Queries) ListAggregateJournal(ctx context.Context, arg ListAggregateJournalParams) ([]ListAggregateJournalRow, error) {
+	rows, err := q.db.Query(ctx, listAggregateJournal, arg.AggregateID, arg.AfterSequence, arg.PageSize)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListAggregateJournalRow{}
+	for rows.Next() {
+		var i ListAggregateJournalRow
+		if err := rows.Scan(
+			&i.JournalPosition,
+			&i.EventID,
+			&i.EventType,
+			&i.SchemaVersion,
+			&i.AggregateType,
+			&i.AggregateID,
+			&i.AggregateVersion,
+			&i.EventSequence,
+			&i.OccurredAt,
+			&i.RecordedAt,
+			&i.CorrelationID,
+			&i.CausationID,
+			&i.Source,
+			&i.Payload,
+			&i.VersionLifecycleState,
+			&i.VersionExecutionOutcome,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listJournal = `-- name: ListJournal :many
+SELECT e.journal_position, e.event_id, e.event_type, e.schema_version, e.aggregate_type, e.aggregate_id,
+       e.aggregate_version, e.event_sequence, e.occurred_at, e.recorded_at, e.correlation_id,
+       e.causation_id, e.source, e.payload,
+       v.to_state AS version_lifecycle_state, v.to_outcome AS version_execution_outcome
+FROM app.domain_events e
+JOIN app.payment_versions v ON v.payment_id = e.aggregate_id AND v.version = e.aggregate_version
+WHERE e.journal_position > $1 AND e.journal_position <= $2
+ORDER BY e.journal_position
+LIMIT $3
+`
+
+type ListJournalParams struct {
+	AfterPosition int64
+	UpToPosition  int64
+	PageSize      int32
+}
+
+type ListJournalRow struct {
+	JournalPosition         int64
+	EventID                 uuid.UUID
+	EventType               string
+	SchemaVersion           int32
+	AggregateType           string
+	AggregateID             uuid.UUID
+	AggregateVersion        int64
+	EventSequence           int64
+	OccurredAt              pgtype.Timestamptz
+	RecordedAt              pgtype.Timestamptz
+	CorrelationID           uuid.UUID
+	CausationID             uuid.UUID
+	Source                  string
+	Payload                 []byte
+	VersionLifecycleState   string
+	VersionExecutionOutcome string
+}
+
+func (q *Queries) ListJournal(ctx context.Context, arg ListJournalParams) ([]ListJournalRow, error) {
+	rows, err := q.db.Query(ctx, listJournal, arg.AfterPosition, arg.UpToPosition, arg.PageSize)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListJournalRow{}
+	for rows.Next() {
+		var i ListJournalRow
+		if err := rows.Scan(
+			&i.JournalPosition,
+			&i.EventID,
+			&i.EventType,
+			&i.SchemaVersion,
+			&i.AggregateType,
+			&i.AggregateID,
+			&i.AggregateVersion,
+			&i.EventSequence,
+			&i.OccurredAt,
+			&i.RecordedAt,
+			&i.CorrelationID,
+			&i.CausationID,
+			&i.Source,
+			&i.Payload,
+			&i.VersionLifecycleState,
+			&i.VersionExecutionOutcome,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listPaymentVersions = `-- name: ListPaymentVersions :many
 SELECT payment_id, version, change_kind, from_state, to_state, from_outcome, to_outcome, actor_type, actor_subject, policy_version, reason, evidence, command_id, occurred_at FROM app.payment_versions WHERE payment_id = $1 ORDER BY version
 `
@@ -504,6 +672,106 @@ func (q *Queries) LockPayment(ctx context.Context, paymentID uuid.UUID) (AppPaym
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const lockPendingOutbox = `-- name: LockPendingOutbox :many
+SELECT e.event_id, e.event_type, e.schema_version, e.aggregate_type, e.aggregate_id,
+       e.aggregate_version, e.event_sequence, e.occurred_at, e.recorded_at,
+       e.correlation_id, e.causation_id, e.source, e.payload,
+       v.to_state AS version_lifecycle_state, v.to_outcome AS version_execution_outcome
+FROM app.outbox o
+JOIN app.domain_events e ON e.event_id = o.event_id
+JOIN app.payment_versions v ON v.payment_id = e.aggregate_id AND v.version = e.aggregate_version
+WHERE o.published_at IS NULL
+ORDER BY e.journal_position
+LIMIT $1
+FOR UPDATE OF o SKIP LOCKED
+`
+
+type LockPendingOutboxRow struct {
+	EventID                 uuid.UUID
+	EventType               string
+	SchemaVersion           int32
+	AggregateType           string
+	AggregateID             uuid.UUID
+	AggregateVersion        int64
+	EventSequence           int64
+	OccurredAt              pgtype.Timestamptz
+	RecordedAt              pgtype.Timestamptz
+	CorrelationID           uuid.UUID
+	CausationID             uuid.UUID
+	Source                  string
+	Payload                 []byte
+	VersionLifecycleState   string
+	VersionExecutionOutcome string
+}
+
+func (q *Queries) LockPendingOutbox(ctx context.Context, batchSize int32) ([]LockPendingOutboxRow, error) {
+	rows, err := q.db.Query(ctx, lockPendingOutbox, batchSize)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []LockPendingOutboxRow{}
+	for rows.Next() {
+		var i LockPendingOutboxRow
+		if err := rows.Scan(
+			&i.EventID,
+			&i.EventType,
+			&i.SchemaVersion,
+			&i.AggregateType,
+			&i.AggregateID,
+			&i.AggregateVersion,
+			&i.EventSequence,
+			&i.OccurredAt,
+			&i.RecordedAt,
+			&i.CorrelationID,
+			&i.CausationID,
+			&i.Source,
+			&i.Payload,
+			&i.VersionLifecycleState,
+			&i.VersionExecutionOutcome,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const markOutboxFailed = `-- name: MarkOutboxFailed :exec
+UPDATE app.outbox
+SET delivery_attempts = delivery_attempts + 1, last_error = $1
+WHERE event_id = $2 AND published_at IS NULL
+`
+
+type MarkOutboxFailedParams struct {
+	LastError *string
+	EventID   uuid.UUID
+}
+
+func (q *Queries) MarkOutboxFailed(ctx context.Context, arg MarkOutboxFailedParams) error {
+	_, err := q.db.Exec(ctx, markOutboxFailed, arg.LastError, arg.EventID)
+	return err
+}
+
+const markOutboxPublished = `-- name: MarkOutboxPublished :exec
+UPDATE app.outbox
+SET published_at = $1, delivery_attempts = delivery_attempts + 1, last_error = NULL
+WHERE event_id = ANY($2::uuid[]) AND published_at IS NULL
+`
+
+type MarkOutboxPublishedParams struct {
+	PublishedAt pgtype.Timestamptz
+	EventIds    []uuid.UUID
+}
+
+func (q *Queries) MarkOutboxPublished(ctx context.Context, arg MarkOutboxPublishedParams) error {
+	_, err := q.db.Exec(ctx, markOutboxPublished, arg.PublishedAt, arg.EventIds)
+	return err
 }
 
 const updatePayment = `-- name: UpdatePayment :execrows

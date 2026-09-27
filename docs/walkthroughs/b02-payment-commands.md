@@ -213,7 +213,7 @@ SELECT workflow_id, status, attempts, next_attempt_at FROM app.workflow_dispatch
 | `idempotency_records` | scope + request hash | Replay/409 decisions; never expires |
 | `commands` | `SUBMIT_PAYMENT`, `COMMITTED` | Backs `GET /commands/{id}` |
 | `audit_entries` | `RECEIVE_PAYMENT` | Audit trail |
-| `domain_events` + `outbox` | `PaymentReceived`, sequence 1, `published_at` NULL | B03's relay will publish it to Kafka |
+| `domain_events` + `outbox` | `PaymentReceived`, sequence 1, `published_at` NULL | payment-worker's relay (B03, terminal C) publishes it to Kafka and sets `published_at` |
 | `workflow_dispatch` | `payment/{id}`, `PENDING` | B06's dispatcher will start the Temporal workflow |
 
 Note that `correlation_id` in `commands` matches the `X-Correlation-Id` response
@@ -259,6 +259,6 @@ exactly one winner. Run `make payment-integration` and read the tests.
 
 - No workflow runs, no funds or limits are reserved, and nothing is screened.
   `RECEIVED` is where a B02 payment stays. B04–B06 add the rest.
-- No payment list or search endpoint (B03 projections). No cancellation API
-  (B06), though the claim primitive exists.
-- Events sit in `outbox` unpublished until B03 adds the relay.
+- No payment list or search endpoint, and events sit in `outbox` unpublished:
+  both arrive in B03 ([walkthrough](b03-events-and-queries.md)). No
+  cancellation API (B06), though the claim primitive exists.

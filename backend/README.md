@@ -30,10 +30,13 @@ offline after `make deps`. Integration tests arrive with infrastructure/features
 
 `payment-api` serves the B02 payment command API (durable receipts, command and
 receipt reads; ADR 0009) beside the I03 runtime demonstration routes.
-`core-banking-service` (B01) serves the authenticated Core Banking port; see
-ADR 0008. Generated code is checked in: `make sqlc-generate` for queries and
-`make openapi-generate` for the payment HTTP boundary (a test fails when the
-embedded contract bundle is stale). The other seven executables remain feature-phase placeholders.
+`core-banking-service` (B01) serves the authenticated Core Banking port and
+relays its posting outbox to Kafka; see ADR 0008. B03 (ADR 0010) adds
+`payment-worker` (payment outbox relay), `event-projector` (payment projections,
+gap catch-up and `rebuild`) and `query-api` (payment queries). Generated code is
+checked in: `make sqlc-generate` for queries and `make openapi-generate` for the
+payment and query HTTP boundaries (tests fail when an embedded contract bundle
+is stale). The other four executables remain feature-phase placeholders.
 See the local runbook for `make auth-smoke` and runtime environment variables.
 For administrator/owner connection details, database and schema inventory, and
 interactive `docker exec` behavior, see the [database guide](migrations/README.md).

@@ -4,12 +4,12 @@ This is the execution/resume entry point for the [GTB foundation](gtb-foundation
 
 ## Resume pointer
 
-- Active phase: none; B02 is complete.
-- Next phase: **B03 — Event delivery and CQRS query foundation**.
-- Next action: read the B03 packet and required foundation sections, inspect the B02 handoff (payment `domain_events`/`outbox`, `PaymentReceived` v1, ADR 0009), and start its first bounded scope item.
-- Last completed phase: **B02 — Payment command model and durable receipts**.
+- Active phase: none; B03 is complete.
+- Next phase: **B04 — Operator commands and durable case framework**.
+- Next action: read the B04 packet and required foundation sections, inspect the B03 handoff (ADR 0010: event stamping, projections, query API), and start its first bounded scope item.
+- Last completed phase: **B03 — Event delivery and CQRS query foundation**.
 - Blockers: none recorded.
-- Last updated: 2026-09-26 — B02 completed: payment command API, atomic durable receipts with pending dispatch, claim primitives; unit/race/live database/API/OIDC/infrastructure checks and govulncheck passed.
+- Last updated: 2026-09-27 — B03 completed: outbox relays to Kafka, payment projections with dedupe/gap/poison handling and shadow rebuild, query API with freshness and pending receipts; unit/race/scratch-database/end-to-end/regression checks and govulncheck passed.
 
 Update these fields whenever the active phase changes or work pauses. If a phase is already active, resume its checkpoint instead of starting the next row.
 
@@ -39,7 +39,7 @@ criteria and project-owned boundaries: [ADR 0007](adr/0007-maintained-libraries-
 | B01 onward | Telemetry | Use OpenTelemetry Go API/SDK and maintained `otelhttp`/driver/client instrumentation; keep metric names and redaction policy project-owned. |
 | B02 | OpenAPI server boundary | Use `oapi-codegen/v2` with its Go 1.22+ `net/http` server target and `kin-openapi/openapi3filter` request validation. |
 | B02 onward | Service-to-service OAuth2 | Use `golang.org/x/oauth2/clientcredentials` for client-credentials tokens ([ADR 0009](adr/0009-payment-command-model-and-receipts.md)); GTB owns audiences, roles and authorization. |
-| B03 | Kafka | Use `twmb/franz-go`; GTB owns outbox, inbox, deduplication, ordering-gap and replay semantics. |
+| B03 | Kafka | Use `twmb/franz-go` (pinned v1.22.0, [ADR 0010](adr/0010-event-delivery-and-cqrs-queries.md)); GTB owns outbox, inbox, deduplication, ordering-gap and replay semantics. |
 | B04 onward | Durable workflows | Use the official `go.temporal.io/sdk` and `testsuite`; workflow determinism and financial state machines remain GTB code. |
 | B07 onward | External adapter circuit state | Use `sony/gobreaker/v2` around eligible synchronous calls; never let it infer an unknown financial outcome or authorize a blind retry. |
 | B13 | CSV import | Use Go `encoding/csv`; GTB owns file/item identities, validation and partial recovery. |
@@ -57,7 +57,7 @@ Allowed statuses: `not started`, `in progress`, `blocked`, `completed`. Start wi
 | [I03](phases/i03.md) | Infrastructure | Authentication and service runtime | I02 | completed |
 | [B01](phases/b01.md) | Backend | Core Banking accounts and posting engine | I03 | completed |
 | [B02](phases/b02.md) | Backend | Payment command model and durable receipts | B01 | completed |
-| [B03](phases/b03.md) | Backend | Event delivery and CQRS query foundation | B02 | not started |
+| [B03](phases/b03.md) | Backend | Event delivery and CQRS query foundation | B02 | completed |
 | [B04](phases/b04.md) | Backend | Operator commands and durable case framework | B03 | not started |
 | [B05](phases/b05.md) | Backend | Acceptance controls and transaction screening | B04 | not started |
 | [B06](phases/b06.md) | Backend | Temporal payment parent and book transfer | B05 | not started |
@@ -135,3 +135,5 @@ Append rows when starting, blocking, resuming, completing or reopening a phase. 
 | 2026-09-26 | B01 | in progress → completed | Reconciled interrupted session (migrations 0002–0003 already applied and frozen; checkpoint stale), added the Core Banking OpenAPI contract, contract/handler tests and ADR 0008. Full Go/race gate, live scenarios A–E, concurrency, lost-reply/409, API smoke and infrastructure/auth regression passed; see B01 completion evidence. |
 | 2026-09-26 | B02 | not started → in progress | B01 completed at `dd98381`; clean working tree and B01 handoff/ADR 0008 inspected. Begin the payment command model, durable receipt and customer-scoped API. |
 | 2026-09-26 | B02 | in progress → completed | Payment command model, payment migration 0002, `payment.json` contract with oapi-codegen/kin-openapi boundary, `payment-service` OIDC identity for Core Banking ownership checks, claim/owner primitives and ADR 0009 delivered. Full Go/race gate, live atomicity/idempotency/race/guard tests, end-to-end API smoke (restart, Core Banking outage), I02/I03/B01 regression and govulncheck (after upgrading x/text for GO-2026-5970) passed; see B02 completion evidence. |
+| 2026-09-27 | B03 | not started → in progress | B02 completed at `dd238ff`; clean working tree, B02 handoff and ADR 0009 inspected. Begin outbox relays to Kafka, payment projections, query API and rebuild. |
+| 2026-09-27 | B03 | in progress → completed | Outbox relays (payment-worker, core-banking-service) to Kafka, payment journal positions/API with pre-B03 upcast, generation-keyed projections with inbox, gap catch-up, repair queue and verified shadow rebuild, query-api (`query.json`) with freshness and pending receipts, `query_reader` login and ADR 0010 delivered. Full Go/race gate, scratch-database integration, end-to-end smoke (Kafka/projector outages, redelivery, poison, rebuild under load), I02/I03/B01/B02 regression and govulncheck passed; see B03 completion evidence. |

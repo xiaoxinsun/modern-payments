@@ -10,6 +10,7 @@ local infrastructure itself (volumes, resets, health checks), see the
 | --- | --- | --- |
 | [Core Banking accounts, holds and postings](b01-core-banking.md) | B01 | Booked vs. available balance, holds, balanced postings, reversals, operation-ID idempotency |
 | [Payment commands and durable receipts](b02-payment-commands.md) | B02 | Submitting a payment, idempotent replay and 409, customer scoping, the rows one receipt writes |
+| [Event delivery and payment queries](b03-events-and-queries.md) | B03 | Outbox → Kafka → projection, query freshness and pending receipts, broker/projector outages, redelivery, poison events, shadow rebuild |
 
 Read this page first. It covers the setup that every walkthrough shares.
 
@@ -48,8 +49,9 @@ Install Docker (with Compose v2.20+), Python 3, Go 1.27.1, `curl` and `jq`
 
 ```sh
 make infra-init infra-up                  # credentials in infra/compose/.env, start containers
-make db-provision db-migrate db-seed      # databases, tables, synthetic fixtures
+make db-provision db-migrate db-seed      # databases, logins, tables, synthetic fixtures
 make oidc-sync                            # add post-import realm objects (safe to rerun)
+make kafka-topics                         # create the event topics (safe to rerun)
 make deps build                           # download pinned Go modules; compile all nine binaries into .build/bin/
 make check                                # optional: the full Go test gate
 ```
@@ -130,8 +132,41 @@ For payment-api, the Core Banking URL defaults to `http://127.0.0.1:8084` and th
 service client to `payment-service`. The generated passwords are hex, so they are
 safe inside URLs. Each service logs its non-secret configuration at startup.
 
-The other seven binaries (`payment-worker`, `query-api`, simulators and so on)
-are placeholders until their phases arrive.
+**Terminal C: payment worker (B03), health on port 8086.** It relays the payment
+outbox to Kafka.
+
+```sh
+GTB_DATABASE_URL="postgresql://payment:$(gtbenv PAYMENT_DB_PASSWORD)@127.0.0.1:5432/payment?sslmode=disable" \
+.build/bin/payment-worker
+```
+
+**Terminal D: event projector (B03), health on port 8085.** It builds the query
+models from Kafka and reads the payment journal through payment-api.
+
+```sh
+GTB_DATABASE_URL="postgresql://projections:$(gtbenv PROJECTIONS_DB_PASSWORD)@127.0.0.1:5432/projections?sslmode=disable" \
+GTB_SERVICE_CLIENT_SECRET="$(gtbenv EVENT_PROJECTOR_OIDC_SECRET)" \
+.build/bin/event-projector
+```
+
+**Terminal E: query API (B03), port 8083.** It connects with the read-only
+`query_reader` login.
+
+```sh
+GTB_DATABASE_URL="postgresql://query_reader:$(gtbenv QUERY_READER_DB_PASSWORD)@127.0.0.1:5432/projections?sslmode=disable" \
+.build/bin/query-api
+```
+
+```sh
+for port in 8086 8085 8083; do curl -s localhost:$port/health/ready; echo; done   # three {"status":"ready"}
+```
+
+Kafka defaults to `127.0.0.1:9092` (`GTB_KAFKA_BROKERS`). Core Banking (terminal A)
+also relays its own posting outbox. The walkthroughs say which terminals they
+need; B01 and B02 need only A and B.
+
+The other four binaries (`payment-worker`'s workflows, simulators and AML
+monitor) arrive in later phases.
 
 ## 4. Identities
 
@@ -142,6 +177,7 @@ are placeholders until their phases arrive.
 | `compliance.demo` | `user_token compliance.demo GTB_COMPLIANCE_PASSWORD` | `compliance_reviewer` | Showing a role that's denied payment reads |
 | `auditor.demo` | `user_token auditor.demo GTB_AUDITOR_PASSWORD` | `auditor` | Read-only access |
 | `payment-service` | `service_token payment-service PAYMENT_SERVICE_OIDC_SECRET` | `internal_service`, audience `core-banking-service` | Calling Core Banking directly |
+| `event-projector` | `service_token event-projector EVENT_PROJECTOR_OIDC_SECRET` | `internal_service`, audience `payment-api` | Reading the payment event journal |
 
 Tokens name their intended recipient in the `aud` claim: user tokens are for
 `payment-api`, and `payment-service` tokens are for `core-banking-service`. Each
@@ -164,8 +200,10 @@ means SGD 25.00. GTB never uses floating point for money.
 
 ## 5. Postman or Bruno instead of curl
 
-Create an environment with `paymentApi = http://localhost:8082` and
-`coreBanking = http://localhost:8084`, then configure OAuth 2.0 authorization:
+Create an environment with `paymentApi = http://localhost:8082`,
+`queryApi = http://localhost:8083` and `coreBanking = http://localhost:8084`, then
+configure OAuth 2.0 authorization (query API requests use the same customer or
+operator tokens as the payment API):
 
 - **Customer or operator requests:** use the *Password Credentials* grant, with
   access token URL `http://localhost:8080/realms/gtb/protocol/openid-connect/token`,
@@ -204,10 +242,16 @@ by the IDs you created rather than expecting empty tables.
 | `503 DEPENDENCY_UNAVAILABLE` on a new payment | Core Banking (terminal A) is not running |
 | `bind: address already in use` | An earlier run is still alive; check with `lsof -nP -iTCP:8082 -sTCP:LISTEN` |
 | `/health/ready` returns `not_ready` | PostgreSQL or Keycloak is down; check `make infra-status` |
+| A payment stays `PENDING` on the query API | payment-worker (C) or event-projector (D) is not running, Kafka is down, or `make kafka-topics` was not run; see `/api/v1/ops/projections` |
+| `projection.freshness` is `STALE` | The projector has not reached Kafka for 10s; check terminal D and `make infra-status` |
+| A restarted projector takes about 10s to resume | Kafka waits for the crashed member's session to expire before reassigning partitions |
+| query-api fails with `password authentication failed for user "query_reader"` | The login is missing; run `make infra-init db-provision db-migrate` |
 
 ## Automated equivalents
 
 Each walkthrough has a scripted counterpart that runs on throwaway ports:
 `make auth-smoke` (I03), `make corebanking-integration corebanking-smoke` (B01) and
-`make payment-integration payment-smoke` (B02). Reading those scripts in
+`make payment-integration payment-smoke` (B02) and
+`make eventing-integration eventing-smoke` (B03; stop terminal D first, because
+the smoke uses the same consumer group). Reading those scripts in
 `infra/compose/tests/` is another good way to learn the APIs.

@@ -57,9 +57,9 @@ per session, even though this bootstrap superuser can inspect all of them.
 | Database | Owner/login | Contents |
 | --- | --- | --- |
 | `postgres` | `gtb_admin` | Bootstrap administration. |
-| `payment` | `payment` | Payment command domain (B02 `0002`: payments, instructions, version history, idempotency, commands, audit, events/outbox, workflow dispatch; ADR 0009). |
+| `payment` | `payment` | Payment command domain (B02 `0002`: payments, instructions, version history, idempotency, commands, audit, events/outbox, workflow dispatch; ADR 0009; B03 `0003`: event journal positions). |
 | `corebanking` | `corebanking` | Accounts and posting authority. |
-| `projections` | `projections` | Query/read models. |
+| `projections` | `projections` | Query/read models (B03 `0002`: generation-keyed `payment_summary`/`payment_timeline`, inbox, gap buffer, consumer offsets/status, repair queue; ADR 0010). The read-only `query_reader` login (query-api) may connect here only. |
 | `simulators` | `simulators` | External-system simulator records. |
 | `temporal` | `temporal` | Temporal workflow persistence. |
 | `temporal_visibility` | `temporal` | Temporal visibility/search data. |

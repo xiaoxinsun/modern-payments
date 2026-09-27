@@ -127,3 +127,24 @@ WHERE e.account_id = $1
 ORDER BY j.committed_at, e.posting_id, e.line_number
 LIMIT $4;
 
+
+-- name: LockPendingPostingOutbox :many
+SELECT e.event_id, e.event_type, e.schema_version, e.aggregate_type, e.aggregate_id,
+       e.aggregate_version, e.event_sequence, e.occurred_at, e.recorded_at,
+       e.correlation_id, e.causation_id, e.source, e.payload
+FROM app.posting_outbox o
+JOIN app.posting_events e ON e.event_id = o.event_id
+WHERE o.published_at IS NULL
+ORDER BY o.occurred_at, o.event_id
+LIMIT sqlc.arg(batch_size)
+FOR UPDATE OF o SKIP LOCKED;
+
+-- name: MarkPostingOutboxPublished :exec
+UPDATE app.posting_outbox
+SET published_at = sqlc.arg(published_at), delivery_attempts = delivery_attempts + 1, last_error = NULL
+WHERE event_id = ANY(sqlc.arg(event_ids)::uuid[]) AND published_at IS NULL;
+
+-- name: MarkPostingOutboxFailed :exec
+UPDATE app.posting_outbox
+SET delivery_attempts = delivery_attempts + 1, last_error = sqlc.arg(last_error)
+WHERE event_id = sqlc.arg(event_id) AND published_at IS NULL;

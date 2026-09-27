@@ -3,8 +3,10 @@
 Run commands from the repository root. Install Docker with Compose v2.20 or
 newer and Python 3; start the Docker daemon first. This stack runs infrastructure
 dependencies; application services are started separately. `payment-api` durably
-receives customer payment instructions (B02) and `core-banking-service` serves the
-Core Banking port (B01); other business services remain feature scaffolds.
+receives customer payment instructions (B02), `core-banking-service` serves the
+Core Banking port (B01), and `payment-worker`, `event-projector` and `query-api`
+deliver events and serve payment queries (B03); other business services remain
+feature scaffolds.
 For hands-on tours of the running services, see the
 [walkthroughs](../walkthroughs/README.md).
 
@@ -61,7 +63,8 @@ owners or elevated role attributes fail instead of silently taking over objects.
 | --- | --- | --- |
 | `payment` | `PAYMENT_DB_PASSWORD` | Payment command domain |
 | `corebanking` | `COREBANKING_DB_PASSWORD` | Independent Core Banking authority |
-| `projections` | `PROJECTIONS_DB_PASSWORD` | Query projections |
+| `projections` | `PROJECTIONS_DB_PASSWORD` | Query projections (written by event-projector) |
+| `query_reader` (connects to `projections` only) | `QUERY_READER_DB_PASSWORD` | Read-only query-api login (B03) |
 | `simulators` | `SIMULATORS_DB_PASSWORD` | Independent simulator records |
 | `temporal`, `temporal_visibility` / `temporal` | `TEMPORAL_DB_PASSWORD` | Workflow histories and visibility |
 | `oidc` | `OIDC_DB_PASSWORD` | Keycloak configuration and identities |
@@ -216,5 +219,68 @@ usual `GTB_AUTH_*` settings, `GTB_SERVICE_CLIENT_SECRET` (the
 endpoint) and `GTB_COREBANKING_URL` (default `http://127.0.0.1:8084`). The
 contract is `contracts/openapi/v1/payment.json`; after changing it run
 `make openapi-generate`. See ADR 0009.
+
+## Event delivery and payment queries (B03)
+
+B03 publishes both outboxes to Kafka, projects payment events and serves
+queries (ADR 0010). On an existing stack, add the new reader credential, grants
+and topics without resetting data:
+
+```sh
+make infra-init                # adds QUERY_READER_DB_PASSWORD to .env if missing
+make db-provision db-migrate   # creates the query_reader login; payment 0003, projections 0002
+make kafka-topics              # gtb.payment.events.v1, gtb.corebanking.postings.v1 (idempotent)
+make eventing-integration      # scratch databases: outbox delivery, projector, rebuild, query scope
+make eventing-smoke            # all five services on 1808x: outages, redelivery, poison, rebuild
+```
+
+`eventing-integration` creates throwaway `*_it_*` databases, migrates them,
+runs the `TestScratch*` tests and drops them, so it never touches shared data.
+`eventing-smoke` stops and restarts Kafka and the projector, republishes an
+event, deletes the projector checkpoint, injects a poison record (then marks it
+resolved), rebuilds the projections while payments arrive, and relays a Core
+Banking posting and its reversal. Stop any walkthrough `event-projector` first:
+both join consumer group `gtb-event-projector`.
+
+| Service | Default address | Database login | Other settings |
+| --- | --- | --- | --- |
+| `payment-worker` | `127.0.0.1:8086` (health only) | `payment` | `GTB_KAFKA_BROKERS` (default `127.0.0.1:9092`) |
+| `core-banking-service` | `127.0.0.1:8084` | `corebanking` | also relays postings; `GTB_KAFKA_BROKERS` |
+| `event-projector` | `127.0.0.1:8085` (health only) | `projections` | `GTB_SERVICE_CLIENT_SECRET` (`EVENT_PROJECTOR_OIDC_SECRET`), `GTB_PAYMENT_API_URL` (default `http://127.0.0.1:8082`), `GTB_KAFKA_BROKERS` |
+| `query-api` | `127.0.0.1:8083` | `query_reader` | `GTB_PAYMENT_API_URL` (pending receipts), `GTB_PROJECTION_STALE_AFTER` (default `10s`); audience `payment-api` |
+
+Kafka is not a readiness dependency of any service: while it is down, receipts
+still commit, events wait in the outboxes (`delivery_attempts`, `last_error`),
+and query responses report `projection.freshness: STALE`.
+
+### Runbook: projection lag, poison events and rebuild
+
+1. **Check health.** `GET /api/v1/ops/projections` (operator or
+   `platform_admin` token) shows the active generation, per-partition lag,
+   broker heartbeat, events buffered behind ordering gaps and open repairs.
+2. **STALE.** Kafka or the projector is down. Check `make infra-status`, then the
+   projector log. Nothing needs replaying: undelivered events are still in the
+   outboxes, and the projector resumes from its database checkpoint.
+3. **Buffered gaps** normally clear within seconds (journal catch-up after 5s).
+   If they persist, check that payment-api is reachable from the projector.
+4. **Open repairs.** Inspect `app.repair_queue` in `projections` as the
+   administrator. A poison record never blocks its partition. After fixing the
+   cause, rebuild, then mark the entry `RESOLVED`.
+5. **Rebuild** (safe with live traffic; the projector must be running so live
+   events reach the shadow generation):
+
+   ```sh
+   GTB_DATABASE_URL="postgresql://projections:<PROJECTIONS_DB_PASSWORD>@127.0.0.1:5432/projections?sslmode=disable" \
+   GTB_SERVICE_CLIENT_SECRET=<EVENT_PROJECTOR_OIDC_SECRET> .build/bin/event-projector rebuild
+   ```
+
+   It prints a JSON report and exits 0 only after verification passed and reads
+   switched to the new generation. On failure the active generation is
+   unchanged, the new one is marked `FAILED`, and `problems` says why. After a
+   crash mid-rebuild, run `event-projector rebuild -abandon-building`. The
+   walkthrough shows the same command with the credential helpers.
+
+A rebuild re-reads the payment journal through payment-api. It never writes
+payment or ledger data, and replayed events never reach effectful consumers.
 
 Other feature tables and business seeds remain feature-phase work.

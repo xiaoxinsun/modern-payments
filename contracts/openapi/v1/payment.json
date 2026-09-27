@@ -3,7 +3,7 @@
   "info": {
     "title": "GTB payment commands",
     "version": "1.0.0",
-    "description": "B02 customer payment command boundary. `202` means the instruction, idempotency record, audit entry, PaymentReceived event and workflow-start dispatch intent committed together: durably received, never accepted or completed. Repeating the same Idempotency-Key for the same customer with the same payload replays the original receipt; a different payload returns 409. Receipt reads come from the authoritative command store and show pending dispatch even before projections exist."
+    "description": "B02 customer payment command boundary. `202` means the instruction, idempotency record, audit entry, PaymentReceived event and workflow-start dispatch intent committed together: durably received, never accepted or completed. Repeating the same Idempotency-Key for the same customer with the same payload replays the original receipt; a different payload returns 409. Receipt reads come from the authoritative command store and show pending dispatch even before projections exist. B03 adds internal journal reads (`internal_service` role only) so projection consumers can fill ordering gaps and rebuild from the payment event journal; they are read-only and never replay commands."
   },
   "servers": [
     {
@@ -181,6 +181,201 @@
             "$ref": "shared.json#/components/responses/Error"
           },
           "404": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "shared.json#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/integrations/v1/payment-events/watermark": {
+      "get": {
+        "operationId": "getPaymentJournalWatermark",
+        "summary": "Read the payment event journal watermark.",
+        "description": "Requires `internal_service`. Returns the highest allocated journal position and the event and payment counts at or below it, from one snapshot. A rebuild pages the journal up to this watermark; events committed later arrive through Kafka.",
+        "parameters": [
+          {
+            "$ref": "shared.json#/components/parameters/CorrelationID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Journal watermark.",
+            "headers": {
+              "X-Correlation-ID": {
+                "$ref": "shared.json#/components/headers/CorrelationID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JournalWatermark"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "shared.json#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/integrations/v1/payment-events": {
+      "get": {
+        "operationId": "listPaymentJournal",
+        "summary": "Page the payment event journal in position order.",
+        "description": "Requires `internal_service`. Returns events with afterPosition < position <= upToPosition. Positions are allocated at insert, so a lower position can become visible after a higher one; callers combine this read with live delivery and deduplicate by event ID.",
+        "parameters": [
+          {
+            "name": "afterPosition",
+            "in": "query",
+            "required": true,
+            "description": "Exclusive lower bound.",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0,
+              "maximum": 999999999999999999
+            }
+          },
+          {
+            "name": "upToPosition",
+            "in": "query",
+            "required": true,
+            "description": "Inclusive upper bound, normally a watermark.",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0,
+              "maximum": 999999999999999999
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500,
+              "default": 200
+            }
+          },
+          {
+            "$ref": "shared.json#/components/parameters/CorrelationID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Journal page; empty when exhausted.",
+            "headers": {
+              "X-Correlation-ID": {
+                "$ref": "shared.json#/components/headers/CorrelationID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JournalPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "shared.json#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/integrations/v1/payments/{paymentId}/events": {
+      "get": {
+        "operationId": "listPaymentEvents",
+        "summary": "Read one payment's events after a sequence.",
+        "description": "Requires `internal_service`. Returns the payment's journal events with eventSequence > afterSequence in sequence order, for filling an ordering gap. An unknown payment returns an empty page.",
+        "parameters": [
+          {
+            "name": "paymentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "../../common/v1/types.schema.json#/$defs/ID"
+            }
+          },
+          {
+            "name": "afterSequence",
+            "in": "query",
+            "required": true,
+            "description": "Exclusive lower bound on eventSequence.",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0,
+              "maximum": 999999999999999999
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500,
+              "default": 200
+            }
+          },
+          {
+            "$ref": "shared.json#/components/parameters/CorrelationID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Events in sequence order.",
+            "headers": {
+              "X-Correlation-ID": {
+                "$ref": "shared.json#/components/headers/CorrelationID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JournalPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "403": {
             "$ref": "shared.json#/components/responses/Error"
           },
           "500": {
@@ -507,6 +702,65 @@
           },
           "recordedAt": {
             "$ref": "../../common/v1/types.schema.json#/$defs/Timestamp"
+          }
+        }
+      },
+      "JournalWatermark": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "position",
+          "events",
+          "payments"
+        ],
+        "properties": {
+          "position": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,17})$",
+            "description": "Non-negative decimal string."
+          },
+          "events": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,17})$",
+            "description": "Non-negative decimal string."
+          },
+          "payments": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,17})$",
+            "description": "Non-negative decimal string."
+          }
+        }
+      },
+      "JournalEntry": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "position",
+          "event"
+        ],
+        "properties": {
+          "position": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/PositiveSequence"
+          },
+          "event": {
+            "type": "object",
+            "description": "Event envelope as defined by events/v1/envelope.schema.json, with its typed payload."
+          }
+        }
+      },
+      "JournalPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "entries"
+        ],
+        "properties": {
+          "entries": {
+            "type": "array",
+            "maxItems": 500,
+            "items": {
+              "$ref": "#/components/schemas/JournalEntry"
+            }
           }
         }
       }

@@ -92,7 +92,7 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health/live", health.Liveness)
 	mux.HandleFunc("GET /health/ready", health.Readiness)
-	if err := api.Register(mux, verifier, application.NewService(store, accounts)); err != nil {
+	if err := api.Register(mux, verifier, application.NewService(store, accounts), store); err != nil {
 		logger.Error("payment API contract setup failed", "error", err)
 		os.Exit(1)
 	}

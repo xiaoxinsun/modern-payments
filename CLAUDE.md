@@ -42,6 +42,8 @@ make infra-init infra-up  # generate local .env credentials; start Compose stack
 make db-provision db-migrate db-seed
 make infra-status | infra-verify | infra-restart-check | auth-smoke
 make corebanking-integration corebanking-smoke   # B01 live checks
+make payment-integration payment-smoke           # B02 live checks
+make kafka-topics eventing-integration eventing-smoke   # B03 live checks (stop any walkthrough event-projector first)
 make infra-reset CONFIRM=delete-gtb-data         # destructive: deletes volumes; only when asked
 ```
 
@@ -56,7 +58,8 @@ make infra-reset CONFIRM=delete-gtb-data         # destructive: deletes volumes;
 - Layout:
   - One Go module `gtb.local/backend` with nine binaries in `backend/cmd/`.
   - Each service's code lives under `backend/internal/<service>/`.
-  - Shared code is in `internal/platform/{value,auth,runtime,telemetry}`.
+  - Shared code is in `internal/platform/{value,auth,runtime,telemetry}`; shared
+    outbox relay and Kafka mechanics are in `internal/eventing` (B03).
 - Domain packages (`*/domain`) must not import `net/*`, `database/*`, Temporal or
   outer GTB packages. The only GTB package they may use is `internal/platform/value`.
   `internal/architecture/dependencies_test.go` enforces this.

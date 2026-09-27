@@ -24,11 +24,29 @@ sql:
     schema:
       - internal/payment/storage/sqlc_preamble.sql
       - migrations/payment/0002_payment_command_model.sql
+      - migrations/payment/0003_event_journal_position.sql
     queries: internal/payment/storage/queries.sql
     gen:
       go:
         package: paymentdb
         out: internal/payment/storage/paymentdb
+        sql_package: pgx/v5
+        emit_empty_slices: true
+        emit_pointers_for_null_types: true
+        overrides:
+          - db_type: uuid
+            go_type:
+              import: github.com/gofrs/uuid/v5
+              type: UUID
+  - engine: postgresql
+    schema:
+      - internal/projections/storage/sqlc_preamble.sql
+      - migrations/projections/0002_payment_query_models.sql
+    queries: internal/projections/storage/queries.sql
+    gen:
+      go:
+        package: projectiondb
+        out: internal/projections/storage/projectiondb
         sql_package: pgx/v5
         emit_empty_slices: true
         emit_pointers_for_null_types: true

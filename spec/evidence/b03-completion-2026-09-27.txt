@@ -1,0 +1,207 @@
+B03 Event delivery and CQRS query foundation completion evidence
+Date: 2026-09-27
+Branch/base: main, started from dd238ff (phase Backend-02 implemented); B03 changes uncommitted
+Toolchain: go version go1.27.1 darwin/arm64, GOTOOLCHAIN=local
+
+This evidence contains no credentials, access tokens, generated .env content or
+temporary service logs. Payment IDs below are synthetic smoke-test records.
+
+0. Migration state
+
+Applied locally with `make db-migrate` after a rolled-back dry run as each owner:
+- payment/0003_event_journal_position.sql, SHA-256
+  790b7c48b9c48c52f936c9f20ba5219f3e8f3c8f825674291e347fa7bac05f46
+  (dry run: all 31 existing events received distinct positions).
+- projections/0002_payment_query_models.sql, SHA-256
+  6fd89180b8cd75bcf4878870769e9edc96be1f078e2a57c8cdabaa3295dfb70c
+  (dry run: a second ACTIVE generation was rejected by the unique index).
+Both files are now frozen. `make db-provision` created the query_reader login
+(QUERY_READER_DB_PASSWORD added by `make infra-init`); probed directly, it reads
+app.projection_generations, is refused INSERT (read-only transaction) and
+repair_queue.record_value (permission denied), and cannot connect to payment.
+
+1. Complete backend gate
+
+Command:
+  make check
+Result: PASS (exit 0), final run after all code changes. Toolchain, fmt-check,
+mod-check (tidy diff empty, go.sum verified), vet, tests, race detector and all
+nine binaries built. New and changed packages:
+- eventing: record keyed by aggregate ID with eventId/eventType/schemaVersion
+  headers; invalid envelopes are never published; the relay retries failed
+  batches with backoff, bounds each acknowledgement wait and stops with its
+  context; stored errors are bounded, valid UTF-8 and never empty.
+- projections: effectful consumers never receive REPLAY deliveries (the
+  non-effectful ones do); malformed/unknown-field/trailing envelopes and
+  foreign aggregate types are rejected; rebuild timeline comparison requires a
+  journal-identical prefix covering every event at the watermark.
+- projections/api: every query response (PROJECTED, BEHIND, PENDING, page,
+  timeline, ops status, 400/403/404/500/503) validates against query.json;
+  missing token 401, compliance/service identity/customer-on-ops 403, bad
+  limit/lifecycle/customerId/minVersion/payment ID 400; embedded bundle fresh.
+- payment/api: journal endpoints validate against payment.json, require
+  internal_service (customer and ops 403), reject bad bounds (400).
+- adapters/paymentjournal, adapters/paymentreceipts: decode pages, watermark
+  and receipts; forward the caller's token; map 404/403 and treat any other
+  response as unavailable.
+- contracts: query.json validated against the OpenAPI 3.1 meta-schema, all
+  schemas compiled and cross-document refs to payment.json/shared.json resolved.
+
+2. Scratch-database integration (live PostgreSQL, isolated)
+
+Command:
+  GTB_RACE=1 make eventing-integration
+Result: PASS (exit 0), race detector on, 13 tests, not skipped. The runner
+created payment/corebanking/projections scratch databases owned by the domain
+logins, applied the checked-in migrations, ran the tests and dropped them
+(afterwards: 0 databases matching *_it_*).
+- TestScratchOutboxMarksOnlyAcknowledgedEvents: 3 receipts; one publish fails
+  -> 2 published, 1 failed (attempts 1, last_error kept); the retry offers only
+  that event with the same identity and clears the error; a delivery whose
+  commit fails after publishing leaves the event undelivered.
+- TestScratchConcurrentRelaysNeverShareRows: 3 concurrent relays holding row
+  locks during a slow "acknowledgement" publish each of 6 events exactly once.
+- TestScratchJournalPagesAndStampsResultingState: Apply stamps paymentId,
+  lifecycleState and executionOutcome (overriding a forged value); positions
+  increase; after-sequence, bounded and limited pages; watermark counts; a
+  pre-B03 payload is upcast from payment_versions while the stored journal row
+  is unchanged.
+- TestScratchPostingOutboxDelivery: a Core Banking posting's event fails once,
+  then publishes as a valid CoreBankingPostingCommitted (attempts 2, error cleared).
+- TestScratchProjectorDeduplicatesAndCheckpointsAtomically: redelivery of a
+  batch projects nothing (2 duplicates); checkpoint next offset 12 with the
+  projection; a batch whose checkpoint write fails commits none of its
+  projection changes; the retry projects it.
+- TestScratchProjectorBuffersOrderingGapsAndDrains: sequences 4,2,3 buffered;
+  a duplicate of a buffered event is not buffered twice; sequence 1 drains all
+  four in order (version 4).
+- TestScratchProjectorQuarantinesPoisonEvents: undecodable record, foreign
+  aggregate type, first event not PaymentReceived, unknown lifecycle state and
+  a conflicting sequence identity go to repair_queue (5); the partition
+  checkpoint still advances; the valid event beside them projects; the
+  orphan's successor stays visibly buffered.
+- TestScratchGapFillerCatchesUpFromJournal: a young gap is left for Kafka; an
+  old one is filled from the journal (REPLAY) and drains the LIVE event; a
+  buffered event absent from the journal is quarantined.
+- TestScratchRebuildSwitchesGenerationsWhileLiveEventsArrive: while the
+  rebuild pages the journal a new event is consumed live; the new generation
+  holds 7 events (watermark 6), 2 sampled timelines match, reads switch, the
+  old generation is RETIRED with its rows deleted, and live delivery continues
+  into the new generation only.
+- TestScratchFailedRebuildKeepsTheActiveGeneration: an unprojectable journal
+  fact fails verification; the generation is FAILED with no rows and ACTIVE is
+  unchanged; a second concurrent BUILDING generation is refused; -abandon
+  closes a crashed one, and writes to it return ErrGenerationClosed.
+- TestScratchCheckpointOffsetsOverrideKafka: assignment resumes at the
+  database checkpoint, or at the log start when none exists.
+- TestScratchQueryScopesPagesAndReportsPending (via the query_reader login):
+  own payment PROJECTED; minVersion BEHIND; foreign payment 403; operator
+  read; unprojected payment PENDING from the receipt with the caller's token;
+  unknown 404; timeline; customer search requires and is limited to their
+  customerId; keyset pages; a cursor reused with other filters or by another
+  caller is rejected; operator filter; unrelated role 403.
+- TestScratchQueryFreshness: CURRENT after a heartbeat, STALE after the window,
+  LAGGING with backlog; ops status lists generations and consumers.
+
+3. End-to-end smoke (core-banking 18084, payment-api 18082, payment-worker
+   18086, event-projector 18085, query-api 18083; live Kafka and OIDC)
+
+Command:
+  make eventing-smoke
+Result: PASS (exit 0), 43 PASS lines, final run on final code:
+- Relay -> Kafka -> projector -> query: PROJECTED version 1, freshness CURRENT,
+  timeline [PaymentReceived]; customer search; customer outside scope 403,
+  without customerId 400; operator search 200; compliance 403; customer on ops
+  status 403; minVersion BEHIND; unknown payment 404.
+- Projector outage: new payment answered PENDING from the command store
+  (timeline PENDING, empty); freshness STALE; stale view still served; after
+  restart the payment is PROJECTED and freshness CURRENT.
+- Kafka outage (`docker compose stop kafka`): the receipt commits; the event
+  stays in the outbox with failed delivery attempts recorded; view PENDING;
+  freshness STALE. After `up -d --wait kafka`: projected, outbox drained,
+  freshness CURRENT.
+- Redelivery: resetting an event's published_at republishes it (attempts >= 2,
+  same event ID), leaving summary/timeline/inbox counts unchanged (72|75|75);
+  deleting the projector's checkpoints forces a replay of the whole topic,
+  again unchanged (72|75|75).
+- Poison: a non-JSON record is quarantined in repair_queue, is visible as
+  openRepairs, and does not block its partition (the next payment projects);
+  the smoke then marks it RESOLVED.
+- Rebuild with 5 payments submitted concurrently: exit 0, activated, no
+  problems, retired the previous generation; verified 74 payments / 77 events
+  against watermark 78 (36 timelines sampled); reads switched; the concurrent
+  payments are projected; views and timelines of 4 sample payments are
+  identical before and after; the projection equals the journal (81 events,
+  78 payments); ledger posting count unchanged; payment events grew only by
+  the 5 concurrent submissions.
+- Core Banking relay: a posting and its reversal (balances unchanged) are
+  published (published_at set) and found on gtb.corebanking.postings.v1 keyed
+  by posting ID as CoreBankingPostingCommitted.
+- All five services exit 0 on SIGTERM; all logs are structured JSON with no
+  local credential values.
+
+Defects found and fixed while developing the smoke:
+- The projector hung on shutdown: with BlockRebalanceOnPoll the consumer must
+  AllowRebalance before Close.
+- With the broker down, the idempotent producer refused to fail in-flight
+  records, holding the relay transaction open; fixed with
+  AllowIdempotentProduceCancellation (bounded 10s delivery, duplicates
+  absorbed by the inbox).
+- After a crash, the default 45s group session delayed reassignment; the
+  session timeout is now 10s.
+- Pre-B03 events from B02 tests lacked lifecycleState and would be poison; the
+  owner now upcasts from payment_versions when reading.
+
+4. Walkthrough verification (docs/walkthroughs)
+
+README sections 1–3 and every shell block of b03-events-and-queries.md were
+extracted from the markdown and run in order under zsh against the local stack:
+- Services were backgrounded instead of run in terminals, "Ctrl-C terminal D"
+  was a SIGINT, and "restart" reran the block.
+- gtbsql used `exec -T` because the harness has no TTY.
+- The interactive `gtbsql -d payment` block (README section 6) was not run.
+Results matched the text:
+- Step 1: PROJECTED/CURRENT; outbox published after 1 attempt; the Kafka
+  record keyed by payment ID; summary and LIVE inbox rows.
+- Step 2: timeline; a page with nextCursor; BEHIND; 403 and 400; operator list;
+  ops status (generations, 3 partitions, lag 0).
+- Step 3: PENDING, then STALE; after the restart, PROJECTED/CURRENT.
+- Step 4: the receipt committed with Kafka stopped; the outbox showed
+  attempts 1 and a dial error; PENDING/STALE; after Kafka returned,
+  PROJECTED/CURRENT.
+- Step 5: timeline 1 row, then attempts 2 and published, still 1 row.
+- Step 6: undecodable record queued (topic, partition, offset), openRepairs 1,
+  then resolved.
+- Step 7: the rebuild report was activated with problems [] (watermark 74, 72
+  events, 69 payments, 39 timelines); generation history; view served from the
+  new generation.
+- Step 8: the posting and its reversal on the postings topic.
+The setup block's `make check` exposed an unformatted new test file
+(fmt-check); it was fixed and `make check` rerun (PASS, section 1). A note was
+added that the watermark position can exceed the event count.
+
+5. Regression
+
+  make infra-verify             PASS (41 cross-domain denials; new: query_reader reads query models, 13 writes/private columns/other databases denied)
+  make infra-restart-check      PASS (seeds, migrations, Temporal namespace, OIDC realm, Kafka message survived down/up; both gtb topics listed afterwards)
+  make auth-smoke               PASS (I03)
+  make corebanking-integration  PASS (B01)
+  make corebanking-smoke        PASS (B01; core-banking-service now also relays)
+  make payment-integration      PASS (B02; Apply now stamps event state)
+  make payment-smoke            PASS (B02)
+
+6. Dependency review
+
+  cd backend && go run golang.org/x/vuln/cmd/govulncheck@latest ./...   (govulncheck v1.8.0, DB updated 2026-09-24)
+Result: "No vulnerabilities found."
+New direct module: github.com/twmb/franz-go v1.22.0 (register row B03;
+requires Go 1.26+). New indirect: github.com/twmb/franz-go/pkg/kmsg v1.14.0,
+github.com/klauspost/compress v1.20.0, github.com/pierrec/lz4/v4 v4.1.30.
+go.opentelemetry.io/otel/metric v1.46.0 moved from indirect to direct (relay
+and projector counters). License posture (LICENSE files in the module cache):
+franz-go and kmsg BSD-3-Clause; klauspost/compress BSD-3-Clause with
+Apache-2.0 portions; pierrec/lz4 BSD-3-Clause.
+
+Not run: GitHub Actions CI (local only). The CI infrastructure job runs
+infra-init/db-provision (creating query_reader) and infra-verify (which now
+checks it); it does not create topics or run the B03 live checks.

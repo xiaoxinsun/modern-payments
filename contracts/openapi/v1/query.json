@@ -1,0 +1,664 @@
+{
+  "openapi": "3.1.1",
+  "info": {
+    "title": "GTB payment queries",
+    "version": "1.0.0",
+    "description": "B03 read side, served by query-api from the projections database (CQRS). Views are derived from payment events and may lag the command store: every response carries projection metadata (`asOf`, `generation`, `freshness`, consumer lag), and each payment carries its projected aggregate version. A payment that was durably received but is not yet projected is answered from the command-store receipt with `status` PENDING rather than 404. Views never authorize money movement."
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:8083"
+    }
+  ],
+  "security": [
+    {
+      "BearerAuth": []
+    }
+  ],
+  "paths": {
+    "/api/v1/payments": {
+      "get": {
+        "operationId": "listPayments",
+        "summary": "Search projected payments, newest first.",
+        "description": "Customers must pass a `customerId` from their token's customer scope. ops_viewer, investigator, approver and auditor may omit it to search all payments. Keyset pagination over (receivedAt, paymentId); the cursor is bound to the caller and filters.",
+        "parameters": [
+          {
+            "name": "customerId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "../../common/v1/types.schema.json#/$defs/ID"
+            }
+          },
+          {
+            "name": "lifecycleState",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "payment.json#/components/schemas/LifecycleState"
+            }
+          },
+          {
+            "$ref": "shared.json#/components/parameters/Limit"
+          },
+          {
+            "$ref": "shared.json#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "shared.json#/components/parameters/CorrelationID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of payment summaries.",
+            "headers": {
+              "X-Correlation-ID": {
+                "$ref": "shared.json#/components/headers/CorrelationID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "shared.json#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/payments/{paymentId}": {
+      "get": {
+        "operationId": "getPayment",
+        "summary": "Read one payment's summary with freshness.",
+        "description": "With `minVersion`, `status` is BEHIND until the projection reaches that aggregate version (a client polls, bounded, after a command). An unprojected payment returns the command-store receipt with `status` PENDING.",
+        "parameters": [
+          {
+            "name": "paymentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "../../common/v1/types.schema.json#/$defs/ID"
+            }
+          },
+          {
+            "name": "minVersion",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1,
+              "maximum": 999999999999999999
+            }
+          },
+          {
+            "$ref": "shared.json#/components/parameters/CorrelationID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Projected, behind or pending payment view.",
+            "headers": {
+              "X-Correlation-ID": {
+                "$ref": "shared.json#/components/headers/CorrelationID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentView"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "shared.json#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/payments/{paymentId}/timeline": {
+      "get": {
+        "operationId": "getPaymentTimeline",
+        "summary": "Read a payment's ordered event timeline.",
+        "description": "Entries are ordered by event sequence. An unprojected payment returns an empty timeline with `status` PENDING.",
+        "parameters": [
+          {
+            "name": "paymentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "../../common/v1/types.schema.json#/$defs/ID"
+            }
+          },
+          {
+            "$ref": "shared.json#/components/parameters/CorrelationID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ordered timeline.",
+            "headers": {
+              "X-Correlation-ID": {
+                "$ref": "shared.json#/components/headers/CorrelationID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentTimeline"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "shared.json#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/ops/projections": {
+      "get": {
+        "operationId": "getProjectionStatus",
+        "summary": "Read projection delivery health.",
+        "description": "Requires ops_viewer, investigator, approver, auditor or platform_admin. Shows generations (including a rebuild in progress), consumer lag per partition, events buffered behind ordering gaps and open repair-queue entries.",
+        "parameters": [
+          {
+            "$ref": "shared.json#/components/parameters/CorrelationID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Projection status.",
+            "headers": {
+              "X-Correlation-ID": {
+                "$ref": "shared.json#/components/headers/CorrelationID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectionStatus"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "shared.json#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "shared.json#/components/responses/Error"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "Freshness": {
+        "type": "string",
+        "enum": [
+          "CURRENT",
+          "LAGGING",
+          "STALE"
+        ],
+        "description": "CURRENT: the consumer reached Kafka recently and has no known backlog. LAGGING: reachable, with unprocessed records. STALE: the consumer has not reached Kafka within the staleness window (broker or projector outage); views may be arbitrarily old."
+      },
+      "ProjectionMeta": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "asOf",
+          "generation",
+          "freshness",
+          "consumerLag"
+        ],
+        "properties": {
+          "asOf": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/Timestamp"
+          },
+          "generation": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "freshness": {
+            "$ref": "#/components/schemas/Freshness"
+          },
+          "consumerLag": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,17})$",
+            "description": "Non-negative decimal string."
+          },
+          "brokerSeenAt": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/Timestamp"
+          },
+          "lastEventAt": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/Timestamp"
+          }
+        }
+      },
+      "PaymentView": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "paymentId",
+          "status",
+          "lifecycleState",
+          "executionOutcome",
+          "version",
+          "receivedAt",
+          "projection"
+        ],
+        "properties": {
+          "paymentId": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/ID"
+          },
+          "customerId": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/ID"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PROJECTED",
+              "BEHIND",
+              "PENDING"
+            ],
+            "description": "PROJECTED: from the query model. BEHIND: projected below the requested minVersion. PENDING: durably received but not yet projected; fields come from the command-store receipt."
+          },
+          "product": {
+            "$ref": "payment.json#/components/schemas/Product"
+          },
+          "amount": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/Money"
+          },
+          "lifecycleState": {
+            "$ref": "payment.json#/components/schemas/LifecycleState"
+          },
+          "executionOutcome": {
+            "$ref": "payment.json#/components/schemas/ExecutionOutcome"
+          },
+          "version": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/PositiveSequence",
+            "description": "Projected aggregate version, or the receipt's committed version when PENDING."
+          },
+          "receivedAt": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/Timestamp"
+          },
+          "lastEventAt": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/Timestamp"
+          },
+          "projectedAt": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/Timestamp"
+          },
+          "projection": {
+            "$ref": "#/components/schemas/ProjectionMeta"
+          }
+        }
+      },
+      "PaymentSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "paymentId",
+          "customerId",
+          "product",
+          "amount",
+          "lifecycleState",
+          "executionOutcome",
+          "version",
+          "receivedAt",
+          "lastEventAt"
+        ],
+        "properties": {
+          "paymentId": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/ID"
+          },
+          "customerId": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/ID"
+          },
+          "product": {
+            "$ref": "payment.json#/components/schemas/Product"
+          },
+          "amount": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/Money"
+          },
+          "lifecycleState": {
+            "$ref": "payment.json#/components/schemas/LifecycleState"
+          },
+          "executionOutcome": {
+            "$ref": "payment.json#/components/schemas/ExecutionOutcome"
+          },
+          "version": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/PositiveSequence"
+          },
+          "receivedAt": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/Timestamp"
+          },
+          "lastEventAt": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/Timestamp"
+          }
+        }
+      },
+      "PaymentPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "projection"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/PaymentSummary"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048
+          },
+          "projection": {
+            "$ref": "#/components/schemas/ProjectionMeta"
+          }
+        }
+      },
+      "TimelineEntry": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "eventId",
+          "eventSequence",
+          "eventType",
+          "aggregateVersion",
+          "lifecycleState",
+          "executionOutcome",
+          "occurredAt",
+          "correlationId",
+          "causationId"
+        ],
+        "properties": {
+          "eventId": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/ID"
+          },
+          "eventSequence": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/PositiveSequence"
+          },
+          "eventType": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/Name"
+          },
+          "aggregateVersion": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/PositiveSequence"
+          },
+          "lifecycleState": {
+            "$ref": "payment.json#/components/schemas/LifecycleState"
+          },
+          "executionOutcome": {
+            "$ref": "payment.json#/components/schemas/ExecutionOutcome"
+          },
+          "occurredAt": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/Timestamp"
+          },
+          "correlationId": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/ID"
+          },
+          "causationId": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/ID"
+          }
+        }
+      },
+      "PaymentTimeline": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "paymentId",
+          "status",
+          "entries",
+          "projection"
+        ],
+        "properties": {
+          "paymentId": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/ID"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PROJECTED",
+              "PENDING"
+            ]
+          },
+          "entries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TimelineEntry"
+            }
+          },
+          "projection": {
+            "$ref": "#/components/schemas/ProjectionMeta"
+          }
+        }
+      },
+      "GenerationStatus": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "generation",
+          "status",
+          "createdAt"
+        ],
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "BUILDING",
+              "ACTIVE",
+              "RETIRED",
+              "FAILED"
+            ]
+          },
+          "journalWatermark": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,17})$",
+            "description": "Non-negative decimal string."
+          },
+          "createdAt": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/Timestamp"
+          },
+          "activatedAt": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/Timestamp"
+          },
+          "finishedAt": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/Timestamp"
+          }
+        }
+      },
+      "PartitionLag": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "topic",
+          "partition",
+          "nextOffset",
+          "highWatermark",
+          "lag",
+          "updatedAt"
+        ],
+        "properties": {
+          "topic": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 249
+          },
+          "partition": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "nextOffset": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,17})$",
+            "description": "Non-negative decimal string."
+          },
+          "highWatermark": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,17})$",
+            "description": "Non-negative decimal string."
+          },
+          "lag": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,17})$",
+            "description": "Non-negative decimal string."
+          },
+          "updatedAt": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/Timestamp"
+          }
+        }
+      },
+      "ConsumerStatus": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "consumer",
+          "freshness",
+          "partitions"
+        ],
+        "properties": {
+          "consumer": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/Name"
+          },
+          "freshness": {
+            "$ref": "#/components/schemas/Freshness"
+          },
+          "brokerSeenAt": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/Timestamp"
+          },
+          "lastEventAt": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/Timestamp"
+          },
+          "partitions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PartitionLag"
+            }
+          }
+        }
+      },
+      "Backlog": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "count"
+        ],
+        "properties": {
+          "count": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,17})$",
+            "description": "Non-negative decimal string."
+          },
+          "oldestAt": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/Timestamp"
+          }
+        }
+      },
+      "ProjectionStatus": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "asOf",
+          "generations",
+          "consumers",
+          "bufferedEvents",
+          "openRepairs"
+        ],
+        "properties": {
+          "asOf": {
+            "$ref": "../../common/v1/types.schema.json#/$defs/Timestamp"
+          },
+          "generations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GenerationStatus"
+            }
+          },
+          "consumers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConsumerStatus"
+            }
+          },
+          "bufferedEvents": {
+            "$ref": "#/components/schemas/Backlog",
+            "description": "Events waiting behind ordering gaps."
+          },
+          "openRepairs": {
+            "$ref": "#/components/schemas/Backlog",
+            "description": "Poison events awaiting repair."
+          }
+        }
+      }
+    }
+  }
+}

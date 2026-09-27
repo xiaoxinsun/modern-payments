@@ -9,6 +9,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -38,10 +39,14 @@ type PaymentService interface {
 	Command(context.Context, auth.Principal, value.ID) (application.Command, error)
 }
 
+// JournalRole may read the payment event journal; projection consumers use it
+// to fill ordering gaps and rebuild. It grants no command access.
+const JournalRole = "internal_service"
+
 // Register mounts the payment routes behind authentication and route-level
 // roles. The service still enforces customer scope on every record.
-func Register(mux *http.ServeMux, verifier auth.Verifier, service PaymentService) error {
-	handler, err := NewHTTPHandler(service)
+func Register(mux *http.ServeMux, verifier auth.Verifier, service PaymentService, journal application.Journal) error {
+	handler, err := NewHTTPHandler(service, journal)
 	if err != nil {
 		return err
 	}
@@ -50,17 +55,21 @@ func Register(mux *http.ServeMux, verifier auth.Verifier, service PaymentService
 	mux.Handle("POST /api/v1/payments", auth.Authenticate(verifier, submitters(handler)))
 	mux.Handle("GET /api/v1/payments/{paymentId}/receipt", auth.Authenticate(verifier, readers(handler)))
 	mux.Handle("GET /api/v1/commands/{commandId}", auth.Authenticate(verifier, readers(handler)))
+	journalReaders := auth.RequireAnyRole(JournalRole)
+	mux.Handle("GET /integrations/v1/payment-events", auth.Authenticate(verifier, journalReaders(handler)))
+	mux.Handle("GET /integrations/v1/payment-events/watermark", auth.Authenticate(verifier, journalReaders(handler)))
+	mux.Handle("GET /integrations/v1/payments/{paymentId}/events", auth.Authenticate(verifier, journalReaders(handler)))
 	return nil
 }
 
 // NewHTTPHandler validates requests against the embedded contract bundle and
 // dispatches to the generated standard-library server wrapper.
-func NewHTTPHandler(service PaymentService) (http.Handler, error) {
+func NewHTTPHandler(service PaymentService, journal application.Journal) (http.Handler, error) {
 	validate, err := requestValidator()
 	if err != nil {
 		return nil, err
 	}
-	return validate(HandlerWithOptions(&server{service: service}, StdHTTPServerOptions{
+	return validate(HandlerWithOptions(&server{service: service, journal: journal}, StdHTTPServerOptions{
 		ErrorHandlerFunc: func(writer http.ResponseWriter, request *http.Request, _ error) {
 			platformruntime.WriteError(writer, request, http.StatusBadRequest, contracts.InvalidRequest, "request parameters do not match the payment API contract", false)
 		},
@@ -105,6 +114,68 @@ func requestValidator() (func(http.Handler) http.Handler, error) {
 
 type server struct {
 	service PaymentService
+	journal application.Journal
+}
+
+const defaultJournalPage = 200
+
+func (server *server) GetPaymentJournalWatermark(writer http.ResponseWriter, request *http.Request, _ GetPaymentJournalWatermarkParams) {
+	watermark, err := server.journal.JournalWatermark(request.Context())
+	if err != nil {
+		writeError(writer, request, err)
+		return
+	}
+	platformruntime.WriteJSON(writer, http.StatusOK, JournalWatermark{
+		Position: strconv.FormatInt(watermark.Position, 10), Events: strconv.FormatInt(watermark.Events, 10),
+		Payments: strconv.FormatInt(watermark.Aggregates, 10),
+	})
+}
+
+func (server *server) ListPaymentJournal(writer http.ResponseWriter, request *http.Request, params ListPaymentJournalParams) {
+	if params.UpToPosition < params.AfterPosition {
+		writeError(writer, request, fmt.Errorf("%w: upToPosition must not be below afterPosition", application.ErrInvalidRequest))
+		return
+	}
+	entries, err := server.journal.Journal(request.Context(), params.AfterPosition, params.UpToPosition, pageSize(params.Limit))
+	writeJournal(writer, request, entries, err)
+}
+
+func (server *server) ListPaymentEvents(writer http.ResponseWriter, request *http.Request, paymentID ContractsCommonV1TypesDefsID, params ListPaymentEventsParams) {
+	id := value.ID(paymentID)
+	if err := id.Validate(); err != nil {
+		writeError(writer, request, fmt.Errorf("%w: payment ID must be a canonical UUIDv4", application.ErrInvalidRequest))
+		return
+	}
+	entries, err := server.journal.AggregateJournal(request.Context(), id, params.AfterSequence, pageSize(params.Limit))
+	writeJournal(writer, request, entries, err)
+}
+
+func pageSize(limit *int) int32 {
+	if limit == nil {
+		return defaultJournalPage
+	}
+	return int32(*limit)
+}
+
+func writeJournal(writer http.ResponseWriter, request *http.Request, entries []application.JournalEntry, err error) {
+	if err != nil {
+		writeError(writer, request, err)
+		return
+	}
+	page := JournalPage{Entries: make([]JournalEntry, len(entries))}
+	for index, entry := range entries {
+		var event map[string]interface{}
+		encoded, err := json.Marshal(entry.Event)
+		if err == nil {
+			err = json.Unmarshal(encoded, &event)
+		}
+		if err != nil {
+			writeError(writer, request, err)
+			return
+		}
+		page.Entries[index] = JournalEntry{Position: strconv.FormatInt(entry.Position, 10), Event: event}
+	}
+	platformruntime.WriteJSON(writer, http.StatusOK, page)
 }
 
 func (server *server) SubmitPayment(writer http.ResponseWriter, request *http.Request, params SubmitPaymentParams) {

@@ -50,6 +50,7 @@ type AppDomainEvent struct {
 	CausationID      uuid.UUID
 	Source           string
 	Payload          []byte
+	JournalPosition  int64
 }
 
 type AppIdempotencyRecord struct {

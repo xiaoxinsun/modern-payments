@@ -206,7 +206,7 @@ func TestOpenAPIAndReferences(t *testing.T) {
 	}
 	metaSchema := compile(t, c, metaID)
 	// Register every document first so cross-document component refs resolve.
-	documents := []string{"shared.json", "core-banking.json", "payment.json"}
+	documents := []string{"shared.json", "core-banking.json", "payment.json", "query.json"}
 	apis := make(map[string]any, len(documents))
 	for _, name := range documents {
 		api := readJSON(t, "../../../contracts/openapi/v1/"+name)
@@ -233,7 +233,7 @@ func TestOpenAPIAndReferences(t *testing.T) {
 						compile(t, c, apiURL+"#"+childPointer)
 					}
 					if key == "$ref" && pointer != "" {
-						if ref, ok := child.(string); ok && strings.HasPrefix(ref, "shared.json#") {
+						if ref, ok := child.(string); ok && (strings.HasPrefix(ref, "shared.json#") || strings.HasPrefix(ref, "payment.json#")) {
 							resolveReference(t, schemaRoot+"openapi/v1/"+ref, apis)
 						}
 					}

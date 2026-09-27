@@ -303,7 +303,7 @@ func (store *Store) Apply(ctx context.Context, request ApplyRequest) (domain.Pay
 		if change.CommandID != nil {
 			causation = *change.CommandID
 		}
-		if err := insertEvent(ctx, queries, ids[1+index], event.Type, *change, sequence, request.CorrelationID, causation, event.Payload); err != nil {
+		if err := insertEvent(ctx, queries, ids[1+index], event.Type, *change, sequence, request.CorrelationID, causation, stampedPayload(event.Payload, next)); err != nil {
 			return domain.Payment{}, err
 		}
 	}
@@ -328,6 +328,20 @@ func (store *Store) Apply(ctx context.Context, request ApplyRequest) (domain.Pay
 		return domain.Payment{}, err
 	}
 	return next, nil
+}
+
+// stampedPayload adds the resulting payment state to an event payload. Every
+// payment event carries paymentId, lifecycleState and executionOutcome, so
+// projections never infer state from event names (ADR 0010).
+func stampedPayload(payload map[string]any, next domain.Payment) map[string]any {
+	stamped := make(map[string]any, len(payload)+3)
+	for key, value := range payload {
+		stamped[key] = value
+	}
+	stamped["paymentId"] = next.ID
+	stamped["lifecycleState"] = next.Lifecycle
+	stamped["executionOutcome"] = next.Outcome
+	return stamped
 }
 
 // Changes returns the append-only version history in order.

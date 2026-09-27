@@ -78,6 +78,34 @@ ALTER ROLE {domain} IN DATABASE {domain} SET search_path = app, public;
              {"GTB_PROVISION_PASSWORD": credentials()[f"{domain.upper()}_DB_PASSWORD"]})
         domain_sql(domain, "REVOKE ALL ON SCHEMA public FROM PUBLIC;")
         print(f"Provisioned {domain}: database owner/login {domain}")
+    provision_reader()
+
+
+# CQRS read credentials: query-api connects as a login that may only read the
+# projections database. Table grants come from the projections migrations.
+READER, READER_DATABASE = "query_reader", "projections"
+
+
+def provision_reader():
+    sql = rf"""
+SELECT pg_advisory_lock(710200);
+\getenv provision_password GTB_PROVISION_PASSWORD
+SELECT format('CREATE ROLE %I LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD %L',
+              '{READER}', :'provision_password')
+WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '{READER}') \gexec
+DO $$ BEGIN
+  IF EXISTS (SELECT FROM pg_roles WHERE rolname = '{READER}' AND
+      (rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls OR NOT rolcanlogin))
+     OR EXISTS (SELECT FROM pg_auth_members WHERE member = '{READER}'::regrole)
+  THEN RAISE EXCEPTION 'Existing {READER} role attributes conflict with provisioning'; END IF;
+END $$;
+GRANT CONNECT ON DATABASE {READER_DATABASE} TO {READER};
+ALTER ROLE {READER} IN DATABASE {READER_DATABASE} SET search_path = app, public;
+ALTER ROLE {READER} SET default_transaction_read_only = on;
+"""
+    psql("gtb_admin", "postgres", "POSTGRES_ADMIN_PASSWORD", sql,
+         {"GTB_PROVISION_PASSWORD": credentials()["QUERY_READER_DB_PASSWORD"]})
+    print(f"Provisioned {READER}: read-only login for {READER_DATABASE}")
 
 
 def migration_sql(directory):

@@ -3,6 +3,7 @@ package api
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -98,8 +99,8 @@ func record() application.PaymentRecord {
 func newServer(t *testing.T, service PaymentService) http.Handler {
 	t.Helper()
 	mux := http.NewServeMux()
-	verifier := tokenVerifier{"customer": role("customer"), "ops": role("ops_viewer"), "compliance": role("compliance_reviewer")}
-	if err := Register(mux, verifier, service); err != nil {
+	verifier := tokenVerifier{"customer": role("customer"), "ops": role("ops_viewer"), "compliance": role("compliance_reviewer"), "service": role("internal_service")}
+	if err := Register(mux, verifier, service, fakeJournal{}); err != nil {
 		t.Fatal(err)
 	}
 	return platformruntime.WithCorrelation(mux)
@@ -253,5 +254,77 @@ func TestEmbeddedBundleMatchesContract(t *testing.T) {
 	}
 	if !bytes.Equal(fresh, bundle) {
 		t.Fatal("payment.bundle.json is stale; run make openapi-generate")
+	}
+}
+
+type fakeJournal struct{}
+
+func journalEvent(sequence int64) contracts.Event {
+	at := time.Date(2026, 9, 27, 1, 2, 3, 0, time.UTC)
+	return contracts.Event{
+		EventID: "30000000-0000-4000-8000-00000000000" + value.ID(fmt.Sprint(sequence)), EventType: "PaymentReceived",
+		SchemaVersion: 1, AggregateType: "Payment", AggregateID: paymentID, AggregateVersion: sequence,
+		EventSequence: sequence, OccurredAt: at, RecordedAt: at, CorrelationID: commandID, CausationID: commandID,
+		Source: "payment-api", Payload: json.RawMessage(`{"paymentId":"` + string(paymentID) + `","lifecycleState":"RECEIVED"}`),
+	}
+}
+
+func (fakeJournal) JournalWatermark(context.Context) (application.JournalWatermark, error) {
+	return application.JournalWatermark{Position: 7, Events: 7, Aggregates: 3}, nil
+}
+
+func (fakeJournal) Journal(_ context.Context, after, upTo int64, limit int32) ([]application.JournalEntry, error) {
+	var entries []application.JournalEntry
+	for position := after + 1; position <= upTo && len(entries) < int(limit); position++ {
+		entries = append(entries, application.JournalEntry{Position: position, Event: journalEvent(position)})
+	}
+	return entries, nil
+}
+
+func (fakeJournal) AggregateJournal(_ context.Context, _ value.ID, after int64, _ int32) ([]application.JournalEntry, error) {
+	return []application.JournalEntry{{Position: 9, Event: journalEvent(after + 1)}}, nil
+}
+
+func TestJournalReadsRequireInternalServiceAndMatchContract(t *testing.T) {
+	router := contractRouter(t)
+	handler := newServer(t, &fakeService{record: record()})
+	for _, path := range []string{
+		"/integrations/v1/payment-events/watermark",
+		"/integrations/v1/payment-events?afterPosition=2&upToPosition=7&limit=3",
+		"/integrations/v1/payments/" + string(paymentID) + "/events?afterSequence=1",
+	} {
+		response := call(handler, http.MethodGet, path, "service", "", nil)
+		if response.Code != http.StatusOK {
+			t.Fatalf("%s: %d %s", path, response.Code, response.Body)
+		}
+		validateResponse(t, router, http.MethodGet, path, response)
+		for _, token := range []string{"customer", "ops"} {
+			if denied := call(handler, http.MethodGet, path, token, "", nil); denied.Code != http.StatusForbidden {
+				t.Fatalf("%s as %s: %d", path, token, denied.Code)
+			}
+		}
+	}
+	page := call(handler, http.MethodGet, "/integrations/v1/payment-events?afterPosition=2&upToPosition=7&limit=3", "service", "", nil)
+	var body struct {
+		Entries []struct {
+			Position string          `json:"position"`
+			Event    contracts.Event `json:"event"`
+		} `json:"entries"`
+	}
+	if err := json.Unmarshal(page.Body.Bytes(), &body); err != nil || len(body.Entries) != 3 || body.Entries[0].Position != "3" {
+		t.Fatalf("page: %v %s", err, page.Body)
+	}
+	if err := body.Entries[0].Event.Validate(); err != nil {
+		t.Fatalf("journal entry is not a valid envelope: %v", err)
+	}
+	for _, path := range []string{
+		"/integrations/v1/payment-events?afterPosition=7&upToPosition=2",
+		"/integrations/v1/payment-events?afterPosition=0",
+		"/integrations/v1/payment-events?afterPosition=0&upToPosition=5&limit=501",
+		"/integrations/v1/payments/not-a-uuid/events?afterSequence=0",
+	} {
+		if response := call(handler, http.MethodGet, path, "service", "", nil); response.Code != http.StatusBadRequest {
+			t.Fatalf("%s: %d", path, response.Code)
+		}
 	}
 }

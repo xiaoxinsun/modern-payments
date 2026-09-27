@@ -1,0 +1,842 @@
+{
+  "components": {
+    "headers": {
+      "shared_CorrelationID": {
+        "description": "Correlation identifier echoed on all responses.",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/contracts_common_v1_types__defs_ID"
+        }
+      }
+    },
+    "parameters": {
+      "shared_CorrelationID": {
+        "description": "Use a valid supplied UUIDv4 or generate one when absent; echo on every response.",
+        "in": "header",
+        "name": "X-Correlation-ID",
+        "schema": {
+          "$ref": "#/components/schemas/contracts_common_v1_types__defs_ID"
+        }
+      },
+      "shared_Cursor": {
+        "description": "Opaque cursor bound to authorization scope, filters and stable ordering.",
+        "in": "query",
+        "name": "cursor",
+        "schema": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "shared_Limit": {
+        "in": "query",
+        "name": "limit",
+        "schema": {
+          "default": 50,
+          "maximum": 100,
+          "minimum": 1,
+          "type": "integer"
+        }
+      }
+    },
+    "responses": {
+      "shared_Error": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/shared_ErrorEnvelope"
+            }
+          }
+        },
+        "description": "Safe error envelope; transport errors do not establish payment business outcomes.",
+        "headers": {
+          "X-Correlation-ID": {
+            "$ref": "#/components/headers/shared_CorrelationID"
+          }
+        }
+      }
+    },
+    "schemas": {
+      "Backlog": {
+        "additionalProperties": false,
+        "properties": {
+          "count": {
+            "description": "Non-negative decimal string.",
+            "pattern": "^(0|[1-9][0-9]{0,17})$",
+            "type": "string"
+          },
+          "oldestAt": {
+            "$ref": "#/components/schemas/contracts_common_v1_types__defs_Timestamp"
+          }
+        },
+        "required": [
+          "count"
+        ],
+        "type": "object"
+      },
+      "ConsumerStatus": {
+        "additionalProperties": false,
+        "properties": {
+          "brokerSeenAt": {
+            "$ref": "#/components/schemas/contracts_common_v1_types__defs_Timestamp"
+          },
+          "consumer": {
+            "$ref": "#/components/schemas/contracts_common_v1_types__defs_Name"
+          },
+          "freshness": {
+            "$ref": "#/components/schemas/Freshness"
+          },
+          "lastEventAt": {
+            "$ref": "#/components/schemas/contracts_common_v1_types__defs_Timestamp"
+          },
+          "partitions": {
+            "items": {
+              "$ref": "#/components/schemas/PartitionLag"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "consumer",
+          "freshness",
+          "partitions"
+        ],
+        "type": "object"
+      },
+      "Freshness": {
+        "description": "CURRENT: the consumer reached Kafka recently and has no known backlog. LAGGING: reachable, with unprocessed records. STALE: the consumer has not reached Kafka within the staleness window (broker or projector outage); views may be arbitrarily old.",
+        "enum": [
+          "CURRENT",
+          "LAGGING",
+          "STALE"
+        ],
+        "type": "string"
+      },
+      "GenerationStatus": {
+        "additionalProperties": false,
+        "properties": {
+          "activatedAt": {
+            "$ref": "#/components/schemas/contracts_common_v1_types__defs_Timestamp"
+          },
+          "createdAt": {
+            "$ref": "#/components/schemas/contracts_common_v1_types__defs_Timestamp"
+          },
+          "finishedAt": {
+            "$ref": "#/components/schemas/contracts_common_v1_types__defs_Timestamp"
+          },
+          "generation": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "journalWatermark": {
+            "description": "Non-negative decimal string.",
+            "pattern": "^(0|[1-9][0-9]{0,17})$",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "BUILDING",
+              "ACTIVE",
+              "RETIRED",
+              "FAILED"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "generation",
+          "status",
+          "createdAt"
+        ],
+        "type": "object"
+      },
+      "PartitionLag": {
+        "additionalProperties": false,
+        "properties": {
+          "highWatermark": {
+            "description": "Non-negative decimal string.",
+            "pattern": "^(0|[1-9][0-9]{0,17})$",
+            "type": "string"
+          },
+          "lag": {
+            "description": "Non-negative decimal string.",
+            "pattern": "^(0|[1-9][0-9]{0,17})$",
+            "type": "string"
+          },
+          "nextOffset": {
+            "description": "Non-negative decimal string.",
+            "pattern": "^(0|[1-9][0-9]{0,17})$",
+            "type": "string"
+          },
+          "partition": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "topic": {
+            "maxLength": 249,
+            "minLength": 1,
+            "type": "string"
+          },
+          "updatedAt": {
+            "$ref": "#/components/schemas/contracts_common_v1_types__defs_Timestamp"
+          }
+        },
+        "required": [
+          "topic",
+          "partition",
+          "nextOffset",
+          "highWatermark",
+          "lag",
+          "updatedAt"
+        ],
+        "type": "object"
+      },
+      "PaymentPage": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PaymentSummary"
+            },
+            "maxItems": 100,
+            "type": "array"
+          },
+          "nextCursor": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
+          },
+          "projection": {
+            "$ref": "#/components/schemas/ProjectionMeta"
+          }
+        },
+        "required": [
+          "items",
+          "projection"
+        ],
+        "type": "object"
+      },
+      "PaymentSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "amount": {
+            "$ref": "#/components/schemas/contracts_common_v1_types__defs_Money"
+          },
+          "customerId": {
+            "$ref": "#/components/schemas/contracts_common_v1_types__defs_ID"
+          },
+          "executionOutcome": {
+            "$ref": "#/components/schemas/payment_ExecutionOutcome"
+          },
+          "lastEventAt": {
+            "$ref": "#/components/schemas/contracts_common_v1_types__defs_Timestamp"
+          },
+          "lifecycleState": {
+            "$ref": "#/components/schemas/payment_LifecycleState"
+          },
+          "paymentId": {
+            "$ref": "#/components/schemas/contracts_common_v1_types__defs_ID"
+          },
+          "product": {
+            "$ref": "#/components/schemas/payment_Product"
+          },
+          "receivedAt": {
+            "$ref": "#/components/schemas/contracts_common_v1_types__defs_Timestamp"
+          },
+          "version": {
+            "$ref": "#/components/schemas/contracts_common_v1_types__defs_PositiveSequence"
+          }
+        },
+        "required": [
+          "paymentId",
+          "customerId",
+          "product",
+          "amount",
+          "lifecycleState",
+          "executionOutcome",
+          "version",
+          "receivedAt",
+          "lastEventAt"
+        ],
+        "type": "object"
+      },
+      "PaymentTimeline": {
+        "additionalProperties": false,
+        "properties": {
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/TimelineEntry"
+            },
+            "type": "array"
+          },
+          "paymentId": {
+            "$ref": "#/components/schemas/contracts_common_v1_types__defs_ID"
+          },
+          "projection": {
+            "$ref": "#/components/schemas/ProjectionMeta"
+          },
+          "status": {
+            "enum": [
+              "PROJECTED",
+              "PENDING"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "paymentId",
+          "status",
+          "entries",
+          "projection"
+        ],
+        "type": "object"
+      },
+      "PaymentView": {
+        "additionalProperties": false,
+        "properties": {
+          "amount": {
+            "$ref": "#/components/schemas/contracts_common_v1_types__defs_Money"
+          },
+          "customerId": {
+            "$ref": "#/components/schemas/contracts_common_v1_types__defs_ID"
+          },
+          "executionOutcome": {
+            "$ref": "#/components/schemas/payment_ExecutionOutcome"
+          },
+          "lastEventAt": {
+            "$ref": "#/components/schemas/contracts_common_v1_types__defs_Timestamp"
+          },
+          "lifecycleState": {
+            "$ref": "#/components/schemas/payment_LifecycleState"
+          },
+          "paymentId": {
+            "$ref": "#/components/schemas/contracts_common_v1_types__defs_ID"
+          },
+          "product": {
+            "$ref": "#/components/schemas/payment_Product"
+          },
+          "projectedAt": {
+            "$ref": "#/components/schemas/contracts_common_v1_types__defs_Timestamp"
+          },
+          "projection": {
+            "$ref": "#/components/schemas/ProjectionMeta"
+          },
+          "receivedAt": {
+            "$ref": "#/components/schemas/contracts_common_v1_types__defs_Timestamp"
+          },
+          "status": {
+            "description": "PROJECTED: from the query model. BEHIND: projected below the requested minVersion. PENDING: durably received but not yet projected; fields come from the command-store receipt.",
+            "enum": [
+              "PROJECTED",
+              "BEHIND",
+              "PENDING"
+            ],
+            "type": "string"
+          },
+          "version": {
+            "$ref": "#/components/schemas/contracts_common_v1_types__defs_PositiveSequence"
+          }
+        },
+        "required": [
+          "paymentId",
+          "status",
+          "lifecycleState",
+          "executionOutcome",
+          "version",
+          "receivedAt",
+          "projection"
+        ],
+        "type": "object"
+      },
+      "ProjectionMeta": {
+        "additionalProperties": false,
+        "properties": {
+          "asOf": {
+            "$ref": "#/components/schemas/contracts_common_v1_types__defs_Timestamp"
+          },
+          "brokerSeenAt": {
+            "$ref": "#/components/schemas/contracts_common_v1_types__defs_Timestamp"
+          },
+          "consumerLag": {
+            "description": "Non-negative decimal string.",
+            "pattern": "^(0|[1-9][0-9]{0,17})$",
+            "type": "string"
+          },
+          "freshness": {
+            "$ref": "#/components/schemas/Freshness"
+          },
+          "generation": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "lastEventAt": {
+            "$ref": "#/components/schemas/contracts_common_v1_types__defs_Timestamp"
+          }
+        },
+        "required": [
+          "asOf",
+          "generation",
+          "freshness",
+          "consumerLag"
+        ],
+        "type": "object"
+      },
+      "ProjectionStatus": {
+        "additionalProperties": false,
+        "properties": {
+          "asOf": {
+            "$ref": "#/components/schemas/contracts_common_v1_types__defs_Timestamp"
+          },
+          "bufferedEvents": {
+            "$ref": "#/components/schemas/Backlog"
+          },
+          "consumers": {
+            "items": {
+              "$ref": "#/components/schemas/ConsumerStatus"
+            },
+            "type": "array"
+          },
+          "generations": {
+            "items": {
+              "$ref": "#/components/schemas/GenerationStatus"
+            },
+            "type": "array"
+          },
+          "openRepairs": {
+            "$ref": "#/components/schemas/Backlog"
+          }
+        },
+        "required": [
+          "asOf",
+          "generations",
+          "consumers",
+          "bufferedEvents",
+          "openRepairs"
+        ],
+        "type": "object"
+      },
+      "TimelineEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "aggregateVersion": {
+            "$ref": "#/components/schemas/contracts_common_v1_types__defs_PositiveSequence"
+          },
+          "causationId": {
+            "$ref": "#/components/schemas/contracts_common_v1_types__defs_ID"
+          },
+          "correlationId": {
+            "$ref": "#/components/schemas/contracts_common_v1_types__defs_ID"
+          },
+          "eventId": {
+            "$ref": "#/components/schemas/contracts_common_v1_types__defs_ID"
+          },
+          "eventSequence": {
+            "$ref": "#/components/schemas/contracts_common_v1_types__defs_PositiveSequence"
+          },
+          "eventType": {
+            "$ref": "#/components/schemas/contracts_common_v1_types__defs_Name"
+          },
+          "executionOutcome": {
+            "$ref": "#/components/schemas/payment_ExecutionOutcome"
+          },
+          "lifecycleState": {
+            "$ref": "#/components/schemas/payment_LifecycleState"
+          },
+          "occurredAt": {
+            "$ref": "#/components/schemas/contracts_common_v1_types__defs_Timestamp"
+          }
+        },
+        "required": [
+          "eventId",
+          "eventSequence",
+          "eventType",
+          "aggregateVersion",
+          "lifecycleState",
+          "executionOutcome",
+          "occurredAt",
+          "correlationId",
+          "causationId"
+        ],
+        "type": "object"
+      },
+      "contracts_common_v1_types__defs_Error": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "enum": [
+              "INVALID_REQUEST",
+              "UNAUTHENTICATED",
+              "FORBIDDEN",
+              "NOT_FOUND",
+              "CONFLICT",
+              "RATE_LIMITED",
+              "DEPENDENCY_UNAVAILABLE",
+              "INTERNAL_ERROR"
+            ]
+          },
+          "message": {
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          },
+          "retryable": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "retryable"
+        ],
+        "type": "object"
+      },
+      "contracts_common_v1_types__defs_ID": {
+        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+        "type": "string"
+      },
+      "contracts_common_v1_types__defs_Money": {
+        "additionalProperties": false,
+        "properties": {
+          "amountMinor": {
+            "pattern": "^(0|-?[1-9][0-9]{0,17})$",
+            "type": "string"
+          },
+          "currency": {
+            "enum": [
+              "SGD",
+              "USD"
+            ]
+          }
+        },
+        "required": [
+          "amountMinor",
+          "currency"
+        ],
+        "type": "object"
+      },
+      "contracts_common_v1_types__defs_Name": {
+        "pattern": "^[A-Za-z][A-Za-z0-9._-]{0,127}$",
+        "type": "string"
+      },
+      "contracts_common_v1_types__defs_PositiveSequence": {
+        "pattern": "^[1-9][0-9]{0,17}$",
+        "type": "string"
+      },
+      "contracts_common_v1_types__defs_Timestamp": {
+        "format": "date-time",
+        "not": {
+          "anyOf": [
+            {
+              "pattern": "^0000-"
+            },
+            {
+              "pattern": "^0001-01-01T00:00:00(\\.0{1,9})?Z$"
+            }
+          ]
+        },
+        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
+        "type": "string"
+      },
+      "payment_ExecutionOutcome": {
+        "enum": [
+          "NOT_SUBMITTED",
+          "PENDING",
+          "CONFIRMED_SUCCESS",
+          "CONFIRMED_FAILURE",
+          "UNKNOWN"
+        ],
+        "type": "string"
+      },
+      "payment_LifecycleState": {
+        "enum": [
+          "RECEIVED",
+          "VALIDATING",
+          "SCHEDULED",
+          "REQUIRES_REVIEW",
+          "ACCEPTED",
+          "EXECUTING",
+          "COMPLETED",
+          "REJECTED",
+          "CANCELLED",
+          "RETURNED"
+        ],
+        "type": "string"
+      },
+      "payment_Product": {
+        "enum": [
+          "BOOK_TRANSFER",
+          "DOMESTIC_INSTANT",
+          "RTGS",
+          "CROSS_BORDER"
+        ],
+        "type": "string"
+      },
+      "shared_ErrorEnvelope": {
+        "additionalProperties": false,
+        "properties": {
+          "correlationId": {
+            "$ref": "#/components/schemas/contracts_common_v1_types__defs_ID"
+          },
+          "error": {
+            "$ref": "#/components/schemas/contracts_common_v1_types__defs_Error"
+          }
+        },
+        "required": [
+          "error",
+          "correlationId"
+        ],
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "BearerAuth": {
+        "bearerFormat": "JWT",
+        "scheme": "bearer",
+        "type": "http"
+      }
+    }
+  },
+  "info": {
+    "description": "B03 read side, served by query-api from the projections database (CQRS). Views are derived from payment events and may lag the command store: every response carries projection metadata (`asOf`, `generation`, `freshness`, consumer lag), and each payment carries its projected aggregate version. A payment that was durably received but is not yet projected is answered from the command-store receipt with `status` PENDING rather than 404. Views never authorize money movement.",
+    "title": "GTB payment queries",
+    "version": "1.0.0"
+  },
+  "openapi": "3.1.1",
+  "paths": {
+    "/api/v1/ops/projections": {
+      "get": {
+        "description": "Requires ops_viewer, investigator, approver, auditor or platform_admin. Shows generations (including a rebuild in progress), consumer lag per partition, events buffered behind ordering gaps and open repair-queue entries.",
+        "operationId": "getProjectionStatus",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/shared_CorrelationID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectionStatus"
+                }
+              }
+            },
+            "description": "Projection status.",
+            "headers": {
+              "X-Correlation-ID": {
+                "$ref": "#/components/headers/shared_CorrelationID"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/shared_Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/shared_Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/shared_Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/shared_Error"
+          }
+        },
+        "summary": "Read projection delivery health."
+      }
+    },
+    "/api/v1/payments": {
+      "get": {
+        "description": "Customers must pass a `customerId` from their token's customer scope. ops_viewer, investigator, approver and auditor may omit it to search all payments. Keyset pagination over (receivedAt, paymentId); the cursor is bound to the caller and filters.",
+        "operationId": "listPayments",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "customerId",
+            "schema": {
+              "$ref": "#/components/schemas/contracts_common_v1_types__defs_ID"
+            }
+          },
+          {
+            "in": "query",
+            "name": "lifecycleState",
+            "schema": {
+              "$ref": "#/components/schemas/payment_LifecycleState"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/shared_Limit"
+          },
+          {
+            "$ref": "#/components/parameters/shared_Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/shared_CorrelationID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentPage"
+                }
+              }
+            },
+            "description": "One page of payment summaries.",
+            "headers": {
+              "X-Correlation-ID": {
+                "$ref": "#/components/headers/shared_CorrelationID"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/shared_Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/shared_Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/shared_Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/shared_Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/shared_Error"
+          }
+        },
+        "summary": "Search projected payments, newest first."
+      }
+    },
+    "/api/v1/payments/{paymentId}": {
+      "get": {
+        "description": "With `minVersion`, `status` is BEHIND until the projection reaches that aggregate version (a client polls, bounded, after a command). An unprojected payment returns the command-store receipt with `status` PENDING.",
+        "operationId": "getPayment",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "paymentId",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/contracts_common_v1_types__defs_ID"
+            }
+          },
+          {
+            "in": "query",
+            "name": "minVersion",
+            "schema": {
+              "format": "int64",
+              "maximum": 1000000000000000000,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/shared_CorrelationID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentView"
+                }
+              }
+            },
+            "description": "Projected, behind or pending payment view.",
+            "headers": {
+              "X-Correlation-ID": {
+                "$ref": "#/components/headers/shared_CorrelationID"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/shared_Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/shared_Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/shared_Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/shared_Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/shared_Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/shared_Error"
+          }
+        },
+        "summary": "Read one payment's summary with freshness."
+      }
+    },
+    "/api/v1/payments/{paymentId}/timeline": {
+      "get": {
+        "description": "Entries are ordered by event sequence. An unprojected payment returns an empty timeline with `status` PENDING.",
+        "operationId": "getPaymentTimeline",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "paymentId",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/contracts_common_v1_types__defs_ID"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/shared_CorrelationID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentTimeline"
+                }
+              }
+            },
+            "description": "Ordered timeline.",
+            "headers": {
+              "X-Correlation-ID": {
+                "$ref": "#/components/headers/shared_CorrelationID"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/shared_Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/shared_Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/shared_Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/shared_Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/shared_Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/shared_Error"
+          }
+        },
+        "summary": "Read a payment's ordered event timeline."
+      }
+    }
+  },
+  "security": [
+    {
+      "BearerAuth": []
+    }
+  ],
+  "servers": [
+    {
+      "url": "http://127.0.0.1:8083"
+    }
+  ]
+}

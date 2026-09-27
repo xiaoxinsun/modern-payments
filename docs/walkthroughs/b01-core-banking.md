@@ -140,7 +140,7 @@ SELECT j.description, j.reversal_of_posting_id IS NOT NULL AS is_reversal, e.lin
   FROM app.posting_journals j JOIN app.posting_entries e USING (posting_id)
   ORDER BY j.committed_at DESC, e.line_number LIMIT 6;
 SELECT event_type, aggregate_id, payload->>'operationId' AS operation FROM app.posting_events ORDER BY recorded_at DESC LIMIT 3;
-SELECT event_id, published_at FROM app.posting_outbox ORDER BY occurred_at DESC LIMIT 3;   -- published_at stays NULL until B03's relay
+SELECT event_id, published_at FROM app.posting_outbox ORDER BY occurred_at DESC LIMIT 3;   -- set by the built-in relay (B03) once Kafka acknowledges
 ```
 
 Every posting appended one `CoreBankingPostingCommitted` event and one outbox

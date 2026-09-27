@@ -81,3 +81,54 @@ SELECT * FROM app.workflow_dispatch WHERE payment_id = $1;
 
 -- name: ListPaymentVersions :many
 SELECT * FROM app.payment_versions WHERE payment_id = $1 ORDER BY version;
+
+-- name: LockPendingOutbox :many
+SELECT e.event_id, e.event_type, e.schema_version, e.aggregate_type, e.aggregate_id,
+       e.aggregate_version, e.event_sequence, e.occurred_at, e.recorded_at,
+       e.correlation_id, e.causation_id, e.source, e.payload,
+       v.to_state AS version_lifecycle_state, v.to_outcome AS version_execution_outcome
+FROM app.outbox o
+JOIN app.domain_events e ON e.event_id = o.event_id
+JOIN app.payment_versions v ON v.payment_id = e.aggregate_id AND v.version = e.aggregate_version
+WHERE o.published_at IS NULL
+ORDER BY e.journal_position
+LIMIT sqlc.arg(batch_size)
+FOR UPDATE OF o SKIP LOCKED;
+
+-- name: MarkOutboxPublished :exec
+UPDATE app.outbox
+SET published_at = sqlc.arg(published_at), delivery_attempts = delivery_attempts + 1, last_error = NULL
+WHERE event_id = ANY(sqlc.arg(event_ids)::uuid[]) AND published_at IS NULL;
+
+-- name: MarkOutboxFailed :exec
+UPDATE app.outbox
+SET delivery_attempts = delivery_attempts + 1, last_error = sqlc.arg(last_error)
+WHERE event_id = sqlc.arg(event_id) AND published_at IS NULL;
+
+-- name: JournalWatermark :one
+SELECT COALESCE(max(journal_position), 0)::bigint AS watermark,
+       count(*)::bigint AS events,
+       count(DISTINCT aggregate_id)::bigint AS aggregates
+FROM app.domain_events;
+
+-- name: ListJournal :many
+SELECT e.journal_position, e.event_id, e.event_type, e.schema_version, e.aggregate_type, e.aggregate_id,
+       e.aggregate_version, e.event_sequence, e.occurred_at, e.recorded_at, e.correlation_id,
+       e.causation_id, e.source, e.payload,
+       v.to_state AS version_lifecycle_state, v.to_outcome AS version_execution_outcome
+FROM app.domain_events e
+JOIN app.payment_versions v ON v.payment_id = e.aggregate_id AND v.version = e.aggregate_version
+WHERE e.journal_position > sqlc.arg(after_position) AND e.journal_position <= sqlc.arg(up_to_position)
+ORDER BY e.journal_position
+LIMIT sqlc.arg(page_size);
+
+-- name: ListAggregateJournal :many
+SELECT e.journal_position, e.event_id, e.event_type, e.schema_version, e.aggregate_type, e.aggregate_id,
+       e.aggregate_version, e.event_sequence, e.occurred_at, e.recorded_at, e.correlation_id,
+       e.causation_id, e.source, e.payload,
+       v.to_state AS version_lifecycle_state, v.to_outcome AS version_execution_outcome
+FROM app.domain_events e
+JOIN app.payment_versions v ON v.payment_id = e.aggregate_id AND v.version = e.aggregate_version
+WHERE e.aggregate_id = sqlc.arg(aggregate_id) AND e.event_sequence > sqlc.arg(after_sequence)
+ORDER BY e.event_sequence
+LIMIT sqlc.arg(page_size);
