@@ -1,0 +1,237 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Java to Go Payments Cheatsheet</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: dense ledger-style reference sheet; masthead strip, then a 3-column card grid that collapses to 1 column on phones */
+:root{
+  --bg:#f3f5f6; --surface:#ffffff; --fg:#17212b; --muted:#56636f; --rule:#d7dde2;
+  --accent:#0b6e75; --accent-soft:#e1f0f0; --warn:#9a5a00; --warn-soft:#fbefd9;
+  --danger:#a8322b; --code-bg:#eef1f3; --code-fg:#1d2a35; --code-comment:#6b7b87;
+  --f-display:"IBM Plex Sans Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#10161c; --surface:#172029; --fg:#e4eaee; --muted:#9aa8b3; --rule:#2a3641;
+    --accent:#5cc2c8; --accent-soft:#16323a; --warn:#e7b25c; --warn-soft:#33281a;
+    --danger:#f08a80; --code-bg:#0d1318; --code-fg:#d5dee4; --code-comment:#7d8d99;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#10161c; --surface:#172029; --fg:#e4eaee; --muted:#9aa8b3; --rule:#2a3641;
+  --accent:#5cc2c8; --accent-soft:#16323a; --warn:#e7b25c; --warn-soft:#33281a;
+  --danger:#f08a80; --code-bg:#0d1318; --code-fg:#d5dee4; --code-comment:#7d8d99;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:14px;line-height:1.5}
+.wrap{max-width:1240px;margin:0 auto;padding-block:28px 40px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header.mast{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px 24px;
+  border-bottom:2px solid var(--fg);padding-bottom:12px;margin-bottom:20px}
+.mast h1{font-family:var(--f-display);font-weight:700;font-size:clamp(26px,4vw,36px);line-height:1.05;margin:0;letter-spacing:-.01em;text-wrap:balance}
+.mast h1 .arrow{color:var(--accent)}
+.mast p{margin:6px 0 0;color:var(--muted);max-width:62ch}
+.legend{display:flex;gap:8px;flex-wrap:wrap;font-size:12px}
+.tag{font-family:var(--f-mono);font-size:11px;padding:2px 7px;border-radius:3px;border:1px solid var(--rule);color:var(--muted);white-space:nowrap}
+.tag.risk{background:var(--warn-soft);border-color:transparent;color:var(--warn)}
+.tag.pay{background:var(--accent-soft);border-color:transparent;color:var(--accent)}
+
+.verdict{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:20px;background:var(--surface);
+  border:1px solid var(--rule);border-radius:6px;padding:18px 20px;margin-bottom:20px}
+.verdict h2{margin-top:0}
+.verdict .big{font-family:var(--f-display);font-size:19px;font-weight:600;line-height:1.3;margin:0 0 8px;text-wrap:balance}
+
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px;align-items:start}
+.col{display:flex;flex-direction:column;gap:20px;min-width:0}
+section.card{background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:16px 18px;min-width:0}
+h2{font-family:var(--f-display);font-weight:600;font-size:13px;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--accent);margin:0 0 10px;display:flex;align-items:center;gap:8px;justify-content:space-between}
+h3{font-family:var(--f-display);font-weight:600;font-size:15px;margin:12px 0 4px}
+h3:first-of-type{margin-top:0}
+p{margin:0 0 8px}
+ul{margin:0;padding-left:18px}
+li{margin:0 0 5px}
+li::marker{color:var(--muted)}
+code{font-family:var(--f-mono);font-size:12.5px;background:var(--code-bg);color:var(--code-fg);padding:1px 4px;border-radius:3px}
+pre{font-family:var(--f-mono);font-size:12px;line-height:1.55;background:var(--code-bg);color:var(--code-fg);
+  border-radius:4px;padding:10px 12px;margin:8px 0 0;overflow-x:auto}
+pre code{background:none;padding:0;font-size:inherit}
+pre .c{color:var(--code-comment);font-style:italic}
+pre .k{color:var(--accent);font-weight:500}
+.muted{color:var(--muted)}
+strong{font-weight:600}
+
+.tablewrap{overflow-x:auto;margin:0 -2px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{font-family:var(--f-display);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);
+  text-align:left;padding:4px 8px 6px 0;border-bottom:1px solid var(--rule)}
+td{padding:6px 8px 6px 0;border-bottom:1px solid var(--rule);vertical-align:top}
+tr:last-child td{border-bottom:0}
+td:first-child{color:var(--muted);white-space:nowrap}
+
+.errs{display:grid;gap:6px;margin:6px 0 8px}
+.err{display:grid;grid-template-columns:96px minmax(0,1fr);gap:8px;align-items:baseline;font-size:13px}
+.err b{font-family:var(--f-mono);font-size:11.5px;font-weight:500;padding:1px 6px;border-radius:3px;text-align:center}
+.err .ok{background:var(--accent-soft);color:var(--accent)}
+.err .retry{background:var(--warn-soft);color:var(--warn)}
+.err .unk{background:var(--warn-soft);color:var(--danger)}
+
+.never{border-left:3px solid var(--danger);padding:2px 0 2px 10px;margin:8px 0}
+footer{margin-top:22px;padding-top:12px;border-top:1px solid var(--rule);color:var(--muted);font-size:12.5px}
+
+@media (max-width:1000px){ .grid{grid-template-columns:repeat(2,minmax(0,1fr))} }
+@media (max-width:700px){
+  .grid,.verdict{grid-template-columns:minmax(0,1fr)}
+  .err{grid-template-columns:84px minmax(0,1fr)}
+}
+</style>
+
+<div class="wrap">
+  <header class="mast">
+    <div>
+      <h1>Java <span class="arrow">→</span> Go, for a payment platform</h1>
+      <p>A working reference for a Java engineer on a Go rewrite: what to unlearn, what replaces the Spring toolkit, and where payments code needs extra care.</p>
+    </div>
+    <div class="legend"><span class="tag pay">payments-critical</span><span class="tag risk">common trap</span></div>
+  </header>
+
+  <section class="verdict">
+    <div>
+      <h2>The verdict</h2>
+      <p class="big">Go suits payments well. The bigger risk is the rewrite, not the language.</p>
+      <p>Payment platforms are I/O-bound orchestration with strict latency and reliability needs: cheap concurrency, small binaries, predictable performance and auditable code all help. Explicit errors and transactions are a feature when money moves.</p>
+      <p class="muted">Watch for: lost edge cases buried in the Java code, weaker type-level domain modeling, and a team writing Java-shaped Go.</p>
+    </div>
+    <div>
+      <h2>Push for a safe migration</h2>
+      <ul>
+        <li><strong>Strangler cutover</strong> by payment flow or merchant segment, never big-bang.</li>
+        <li><strong>Shadow traffic</strong>: run Go alongside Java and diff the outputs.</li>
+        <li><strong>Reconciliation reports</strong> between both systems before each switch.</li>
+        <li><strong>Mine the Java code</strong> for scheme quirks, retry rules and past incident fixes; turn them into Go tests first.</li>
+        <li>Most of what feels missing is <strong>Spring, not Java</strong>. Go makes those decisions visible in code.</li>
+      </ul>
+    </div>
+  </section>
+
+  <div class="grid">
+    <div class="col">
+      <section class="card">
+        <h2>Mindset shifts</h2>
+        <h3>DI still exists, by hand</h3>
+        <p>Constructors take interfaces; <code>main</code> builds the graph. Reach for <code>google/wire</code> or <code>uber/fx</code> only if the graph gets large.</p>
+<pre><code><span class="k">func</span> main() {
+  db := mustOpenDB(cfg)
+  ledger := ledger.NewRepo(db)
+  acq := acquirer.NewClient(cfg.URL, httpClient)
+  svc := payment.NewService(ledger, acq, clock.Real())
+  http.ListenAndServe(":8080", api.NewRouter(svc))
+}</code></pre>
+        <h3>Interfaces live with the consumer</h3>
+        <p>The caller declares the small interface it needs; implementations satisfy it implicitly. No <code>FooService</code> + <code>FooServiceImpl</code> pairs up front.</p>
+<pre><code><span class="c">// in package payment</span>
+<span class="k">type</span> Authorizer <span class="k">interface</span> {
+  Authorize(ctx context.Context, r AuthReq) (AuthResult, error)
+}</code></pre>
+        <h3>Composition over inheritance</h3>
+        <p>Struct embedding and small interfaces replace abstract base classes. Model payment methods as separate types behind one interface, not a hierarchy.</p>
+        <h3>Package by capability</h3>
+        <p><code>payment</code>, <code>ledger</code>, <code>refund</code>, not <code>controller/service/repository</code>. Plain functions where no object is needed. Boring code is the goal.</p>
+      </section>
+    </div>
+
+    <div class="col">
+      <section class="card">
+        <h2>Toolkit map</h2>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Java</th><th>Go</th></tr></thead>
+            <tbody>
+              <tr><td>Spring Boot</td><td><code>net/http</code> + chi</td></tr>
+              <tr><td>JPA / Hibernate</td><td><code>pgx</code> + <code>sqlc</code> (SQL-first, generated)</td></tr>
+              <tr><td>@Transactional</td><td>explicit <code>tx</code>, or a <code>WithTx(ctx, fn)</code> helper</td></tr>
+              <tr><td>Resilience4j</td><td><code>context</code> deadlines + <code>sony/gobreaker</code></td></tr>
+              <tr><td>Micrometer / Sleuth</td><td>OpenTelemetry + Prometheus client</td></tr>
+              <tr><td>Bean Validation</td><td><code>go-playground/validator</code> or <code>Validate()</code> methods</td></tr>
+              <tr><td>Flyway</td><td><code>golang-migrate</code> or <code>goose</code></td></tr>
+              <tr><td>Spring DI</td><td>manual wiring; <code>wire</code> / <code>fx</code> if needed</td></tr>
+              <tr><td>JUnit + Mockito</td><td><code>testing</code>, table tests, fakes, <code>testcontainers-go</code></td></tr>
+              <tr><td>Thread pools</td><td>goroutines + <code>errgroup</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Errors carry business meaning <span class="tag pay">payments</span></h2>
+        <div class="errs">
+          <div class="err"><b class="ok">declined</b><span>Valid outcome. Record it, don't retry.</span></div>
+          <div class="err"><b class="retry">retryable</b><span>Timeout or 5xx before sending. Retry with the same idempotency key.</span></div>
+          <div class="err"><b class="unk">unknown</b><span>Timed out after sending. Status inquiry or reversal, <strong>never a blind retry</strong>.</span></div>
+        </div>
+        <p>Use typed or sentinel errors. Wrap with <code>fmt.Errorf("authorize: %w", err)</code>; check with <code>errors.Is</code> / <code>errors.As</code>.</p>
+      </section>
+
+      <section class="card">
+        <h2>context.Context</h2>
+        <ul>
+          <li>First argument of every function that does I/O, through every layer.</li>
+          <li>Carries deadlines, cancellation and trace IDs.</li>
+          <li>Set a deadline on <strong>every</strong> outbound call.</li>
+        </ul>
+      </section>
+    </div>
+
+    <div class="col">
+      <section class="card">
+        <h2>Money &amp; state <span class="tag pay">payments</span></h2>
+        <h3>Money</h3>
+        <p class="never">Never <code>float64</code>.</p>
+        <p><code>int64</code> minor units + currency code inside a <code>Money</code> type; <code>shopspring/decimal</code> for FX or fractional precision. Block arithmetic across currencies.</p>
+        <h3>State machines without sum types</h3>
+        <p>Named type, one transition table, one function that changes state. Add the <code>exhaustive</code> linter for switches.</p>
+<pre><code><span class="k">type</span> Status string
+<span class="k">var</span> allowed = <span class="k">map</span>[Status][]Status{
+  Created:    {Authorized, Failed},
+  Authorized: {Captured, Failed},
+}
+<span class="k">func</span> (p *Payment) TransitionTo(s Status) error
+<span class="c">// the only place status changes</span></code></pre>
+        <h3>Transactions &amp; consistency</h3>
+        <ul>
+          <li>No external calls inside a DB transaction.</li>
+          <li>Transactional outbox for events.</li>
+          <li>Idempotency key + unique constraint on every externally triggered operation.</li>
+        </ul>
+      </section>
+
+      <section class="card">
+        <h2>Traps for Java devs <span class="tag risk">traps</span></h2>
+        <h3>Concurrency</h3>
+        <ul>
+          <li>A panic in any goroutine kills the <strong>whole process</strong>. Recover at goroutine boundaries you start.</li>
+          <li>Goroutine leaks: unread channels, calls without timeouts.</li>
+          <li>Run tests with <code>-race</code> in CI.</li>
+          <li>Fan-out with <code>errgroup</code>, not hand-rolled WaitGroups.</li>
+        </ul>
+        <h3>Language</h3>
+        <ul>
+          <li>Writing to a nil map panics.</li>
+          <li>An interface holding a nil pointer is <strong>not</strong> <code>== nil</code>.</li>
+          <li><code>append</code> can share the underlying array between slices.</li>
+          <li>Loop-variable capture: fixed in Go 1.22, still in older code.</li>
+        </ul>
+      </section>
+    </div>
+  </div>
+
+  <footer>Your edge as a Java engineer: domain thinking, transactional rigour and DDD instincts. Bring the principles; express them in Go's idioms, not Java's patterns.</footer>
+</div>
+
+</body></html>

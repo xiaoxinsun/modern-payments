@@ -46,6 +46,9 @@ Run `make auth-smoke` after the stack is healthy to validate the I03 OIDC realm,
 protected sample API, readiness, redacted logging and graceful shutdown.
 To explore what each phase built, running the services, calling the APIs and
 inspecting the database, follow the [walkthroughs](docs/walkthroughs/README.md).
+To learn to *read* the code, especially coming from Java, start with the
+[learning track](docs/learning/README.md): a payments primer, Go idioms, and
+side-by-side Go/Java translations of the key code.
 
 ## Suggested Git workflow
 

@@ -12,7 +12,9 @@ local infrastructure itself (volumes, resets, health checks), see the
 | [Payment commands and durable receipts](b02-payment-commands.md) | B02 | Submitting a payment, idempotent replay and 409, customer scoping, the rows one receipt writes |
 | [Event delivery and payment queries](b03-events-and-queries.md) | B03 | Outbox → Kafka → projection, query freshness and pending receipts, broker/projector outages, redelivery, poison events, shadow rebuild |
 
-Read this page first. It covers the setup that every walkthrough shares.
+Read this page first. It covers the setup that every walkthrough shares. To
+understand the code you are running (domain concepts, Go idioms and
+side-by-side Java), see the [learning track](../learning/README.md).
 
 **Conventions.**
 - Each walkthrough is named `<phase>-<topic>.md` and assumes the setup below.
